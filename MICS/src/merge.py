@@ -96,13 +96,24 @@ def load_mics36_standard(inventory_path: Path) -> dict[str, set[str]]:
 
 
 def _normalise_dtypes(df: pd.DataFrame) -> pd.DataFrame:
-    """Convert object columns to numeric where all values are numeric or NaN."""
+    """Ensure all object columns are either float64 or clean string (no mixed types).
+
+    PyArrow requires consistent types within a column. Object columns with a mix
+    of numbers and empty strings cause ArrowInvalid errors at parquet write time.
+    """
     for col in df.select_dtypes(include="object").columns:
         if col in {"country", "mics_round"}:
             continue
-        converted = pd.to_numeric(df[col], errors="coerce")
-        if converted.notna().sum() >= df[col].notna().sum() * 0.99:
+        # Replace empty strings with NaN before type inference
+        s = df[col].replace("", pd.NA)
+        converted = pd.to_numeric(s, errors="coerce")
+        non_null = s.notna().sum()
+        if non_null == 0 or converted.notna().sum() >= non_null * 0.99:
+            # Column is effectively numeric → store as float64
             df[col] = converted
+        else:
+            # Mixed or string column → ensure uniform string, NaN stays NaN
+            df[col] = s.where(s.isna(), s.astype(str))
     return df
 
 
