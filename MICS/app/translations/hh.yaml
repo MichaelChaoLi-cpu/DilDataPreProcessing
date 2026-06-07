@@ -1,0 +1,227 @@
+HH1:
+  0: Cluster Number
+AGEREC:
+  0: Age of household head
+CD11:
+  0: CD11. Child line number
+  1: CD11. Privileges taken away
+  2: CD11.Child line number
+  3: Child line number
+  4: Child line number
+  5: Child line number
+  6: Took away some privilege.
+  7: Take away privileges.
+  8: Take away privileges, forbid doing something he/she likes.
+  9: Take away privileges, forbid doing something he/she likes.
+  10: Take away privileges, forbid doing something he/she likes.
+  11: Took away privileges
+  12: Took away privileges, forbade something liked or did not all
+CD10:
+  0: Take away privileges, forbid something he/she likes.
+CD12:
+  0: CD12. Explained to them why their behavior was wrong
+  3: Explained why their behavior was wrong
+  4: Explain with something why the behavior was wrong
+  5: Explain why their behavior is not acceptable
+CD12A:
+  1: Take away privileges, deny him something he has
+  2: Take away privileges, deny him something he has
+  3: Take away privileges, deny something he likes
+  4: Took away privileges
+CD12B:
+  4: Explain with something why the behavior was bad
+  5: Explain why their conduct was bad
+CD12C:
+  0: CD12C.Shook him/her
+  1: Shake him/her
+  2: Shook him/her
+CD12D:
+  0: CD12D. Did you shout, yell at or scream at him/her?
+  1: CD12D.Shouted yelled at or screamed at him/her
+  2: Shouted, yelled at or screamed at him/her
+  3: Shouted yelled at or screamed at him/her
+CD12E:
+  4: Give him/her something else to do
+  5: Give him/her something else to do
+CD12F:
+  0: CD12F.Spanked, hit or slapped him/her with bare hand
+  1: Spanked, hit or slapped him/her with bare hand
+  2: Spanked, hit or slapped him/her with bare hand
+CD12G:
+  1: Spanked him/her on the bottom with a belt, a brush etc.
+  4: Lash or hit him/her on the bottom with or elsewhere with a
+  5: Spanked him/her on the bottom with a belt, a brush a
+CD12H:
+  5: Insulting them/him/her (calling stupid, lazy or something of that kind)
+  4: Calling them/him/her stupid, lazy or something of that kind
+CD12I:
+  2: Hit or slap him/her on the face, head or ears
+CD12K:
+  4: Hit him/her/it with an instrument as hard as possible
+CD12L:
+  1: Isolate him/her / not talk to him/her / lock up / tie up
+  2: Deprive him/her of food
+CD12M:
+  0: Pass fire or a hot instrument over his/her body
+  1: Refuse him/her food
+CD12N:
+  0: Make him/her sleep outside
+  1: Make him/her copy a text
+CD12O:
+  0: Force him/her to eat a certain type of food or
+CD13:
+  1: CD13. He/She shook or jolted him/her
+  7: Shake him/her
+  8: Shook him
+  9: Do you think that to raise him/her you need to punish him p
+  10: To raise him/her do you need to punish him physically
+CD14:
+  0: CD14. He/She yelled at him/her
+  2: To yell, scream at him/her
+  3: To scream, yell at him
+  4: To scream, yell at him
+  5: To scream, yell at him
+  6: He/She yelled at him/her
+CD15:
+  1: CD15. Gave him/her something else to do
+  4: Gave him/her something else to do
+  5: To give him/her something else to do
+  6: To give him/her something else to do
+  7: To give him/her something else to do
+CD16:
+  0: CD16. He/She slapped him/her.
+  2: To spank, hit or slap with the bare hand.
+  3: He/She hit or spanked the buttocks only with the hand.
+  4: To give him/her a spanking, hit him/her or tap him/her on the
+  5: To give him a spanking, hit him or tap him on the buttocks with bare hands.
+  6: To give him/her a spanking, hit him/her or tap him/her on the
+  7: To give him/her a spanking, hit him/her or tap him/her on the buttocks with the
+    bare hand.
+CD17:
+  1: CD17. He/She hit him/her with a belt, brush or other object.
+  2: Hit on the buttocks or another part with an object
+  6: Hit him/her on the buttocks with a belt, a hairbrush etc
+  7: Hit him/her on the buttocks or another part of the body
+  8: Hit him/her on the buttocks or another part of the body with something
+  9: Hit him/her on the buttocks or another part of the body with a belt, a hairbrush,
+    a stick or other
+CD18:
+  1: CD18. Called him/her foolish, stupid or something similar
+  4: Calling him/her an idiot, lazy or something of that kind
+  5: Calling him/her an idiot, lazy or another similar word
+  6: Calling him/her an idiot, lazy or another similar word
+  7: Called him/her foolish, an idiot, stupid, lazy, etc.
+  8: Called him/her foolish, lazy, etc.
+CD19:
+  4: Hitting or slapping him/her on the face, head or ears
+  5: Hitting or slapping him/her on the face, head or ears
+  6: Hitting or slapping him/her on the face, head or ears
+  7: Hitting or slapping him/her on the face, head or ears
+  8: Hit him/her on the face, head or ears
+CD2:
+  3: Child line number
+  4: Child line number
+  5: Child line number
+  6: Child line number
+  7: Line number
+  8: Child line number
+  9: Resident number
+CD20:
+  1: CD20. S/he hit him/her on the hand, arm or leg
+  4: Hit or tap him/her on the hands, arms or legs
+  5: Hit or tap him/her on the hands, arms or the
+  6: Hit or tap him/her on the hands, arms or legs
+  7: Hit him/her on the hand, arm or leg
+  8: S/he hit him on hand, arm or leg
+CD21:
+  10: Beat him/her with an instrument
+  9: Beat him/her as hard as possible
+  11: Beat him/her, i.e., hit him/her again and again as hard as possible
+  12: Hit him/her with an instrument as hard as possible
+  13: He/She hit him with an implement
+CD22:
+  5: The child needs to be physically punished to raise him/her correctly.
+  6: Necessity of physical punishment.
+  7: It is thought that it is necessary to physically punish him/her to
+  8: It is thought that it is necessary to physically punish him/her to raise him/her
+    correctly.
+  9: Do you think that to raise him/her you need to physically punish him/her?
+CD22A:
+  0: In case of a family dispute, is one of the children often present, sometimes
+    or never?
+CD22B:
+  0: CD23. Do you believe that to raise [a child], he/she must be punished in some
+    way?
+  1: Do you know about the child protection code?
+CD22C:
+  0: Do you take it into consideration when educating your child?
+CD3A:
+  0: He/She took away some privilege
+  1: He/She took away some privilege, forbade him/her something he/she likes, or did
+    not allow him/her to leave the house
+  2: 'Method used: taking away privileges'
+  3: To take away privileges
+  4: To take away privileges, to forbid doing something he/she likes
+  5: He/She took away his/her privileges
+  6: He/She took away his/her privileges, forbade anything he/she likes to do, or
+    did not allow him/her to leave the house
+CD3B:
+  3: Does (name) explain why their behavior is not correct?
+  4: Explains the bad behavior to them.
+  5: Explained the wrong behavior.
+  6: To explain the bad behavior.
+  7: To explain why their behavior is not acceptable.
+  8: Explained to them why their behavior was wrong.
+  9: 'Method used: explain the wrong behavior.'
+CD3C:
+  0: Shook them violently.
+  1: To shake him/her.
+  2: Shook him/her.
+  3: Shook him/her.
+  4: 'Method used: to shake.'
+  5: Shook him/her.
+CD3D:
+  0: Yelled at them / Shouted at him/her.
+  1: Yelled/shouted at him/her.
+  2: To yell, to shout at him.
+  3: To yell, to shout at them.
+  4: To yell, to shout at them.
+  5: Yelled at them, shouted at them.
+  6: Yelled at them, vociferated at them, or screamed at them.
+  7: Spoke loudly to them or yelled loudly at them.
+  8: 'Method used: to yell/shout.'
+CD3E:
+  0: Assigned another task.
+  1: Gave them something to do.
+  2: To give something else to do.
+  3: To give something else to do.
+  6: Made him/her do something else
+  7: Gave him/her something else to do
+  8: To give him/her something else to do
+  9: 'Method used: assign other activities'
+CD3F:
+  0: Slapped or hit him/her with hands
+  1: To spank, hit or tap on the buttocks with bare hands
+  2: Beat, slapped or hit him/her with hands
+  3: Spanked him/her
+  4: Spanked him/her
+  5: Beat him/her, hit him/her or spanked him/her on the bottom only with the hand
+  6: Gave him/her a beating, hit him/her or spanked him/her on the bottom only with
+    the hand
+  7: To spank him/her, hit him/her or tap him/her on the buttocks with the bare hand
+  8: 'Method used: hit, strike or spank on the bottom only with the hand'
+CD3G:
+  0: Hit him/her with a belt, stick or other hard object, etc.
+  1: Hit him/her with a belt, stick, or other hard object
+  2: Strike with belt, hairbrush, stick, or other hard objects
+  3: Strike with belt, brush, stick, or other hard objects
+  4: Strike with belts, brushes, sticks, or other hard objects
+  11: Hit him/her on the buttocks or another part of the body with a belt, a hairbrush,
+    a stick or another object
+  12: Hit him/her with a belt, a hairbrush, a stick or another hard object
+  13: Hit him/her with a belt, a brush
+  14: Hit him/her with a belt, a hairbrush, etc.
+  15: Hit him/her on the buttocks or another part of the body with an object such
+    as a belt, with a whip, a stick or another hard object
+  16: 'Method used: hitting with a belt or a hairbrush, a sandal, a stick or another
+    hard object'
