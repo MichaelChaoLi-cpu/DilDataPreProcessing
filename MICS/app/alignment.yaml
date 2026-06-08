@@ -1022,6 +1022,54 @@ SlapKid:
     text: Espancou, deuum tapaoubateunele/nelacomas mãos
     rounds:
     - MICS5
+  - ticker: CD3F
+    module: hh
+    label_idx: 11
+    text: Spanked, hit, slapped
+    rounds:
+    - MICS5
+  - ticker: CD3I
+    module: hh
+    label_idx: 0
+    text: Bateu-lhe no rosto, cabeÃ§a ou nas orelhas
+    rounds:
+    - MICS5
+  - ticker: CD3I
+    module: hh
+    label_idx: 1
+    text: Bateu-lhe no rosto, cabeça ou nas orelhas
+    rounds:
+    - MICS5
+  - ticker: CD3I
+    module: hh
+    label_idx: 2
+    text: Golpeó / dio una palmada en la cara
+    rounds:
+    - MICS5
+  - ticker: CD3I
+    module: hh
+    label_idx: 3
+    text: Golpeó / dio una palmada en la cara, en la cabeza o en las orejas
+    rounds:
+    - MICS5
+  - ticker: CD3I
+    module: hh
+    label_idx: 4
+    text: Hit or slapped child on the face, head or ears
+    rounds:
+    - MICS5
+  - ticker: CD3I
+    module: hh
+    label_idx: 5
+    text: Hit/slapped on the face
+    rounds:
+    - MICS5
+  - ticker: CD3I
+    module: hh
+    label_idx: 6
+    text: Hit/slapped on the face, head or ears
+    rounds:
+    - MICS5
 SpankBottom:
   mappings:
   - ticker: CD12G
@@ -1458,6 +1506,66 @@ CallDumb:
     module: hh
     label_idx: 0
     text: Called child dumb, lazy or another name
+    rounds:
+    - MICS5
+  - ticker: CD3H
+    module: hh
+    label_idx: 4
+    text: Chamou-lhe de idiota, preguiÃ§oso, ou outro nome
+    rounds:
+    - MICS5
+  - ticker: CD3H
+    module: hh
+    label_idx: 5
+    text: Chamou-lhe de idiota, preguiçoso, ou outro nome
+    rounds:
+    - MICS5
+  - ticker: CD3H
+    module: hh
+    label_idx: 6
+    text: L'appeler idiot, paresseux-euse ou autre mot similaire
+    rounds:
+    - MICS5
+  - ticker: CD3H
+    module: hh
+    label_idx: 7
+    text: Le/la traiter d'idiot, paresseux, ou d'autres noms
+    rounds:
+    - MICS5
+  - ticker: CD3H
+    module: hh
+    label_idx: 8
+    text: Le/la traiter d?idiot, paresseux, ou d?autres noms
+    rounds:
+    - MICS5
+  - ticker: CD3H
+    module: hh
+    label_idx: 9
+    text: Lo(la) llamó tonto(a), haragán(a) o alguna otra cosa parecida
+    rounds:
+    - MICS5
+  - ticker: CD3H
+    module: hh
+    label_idx: 10
+    text: Lo/la llamó tonto/a, haragán/a ,estúpido/a o algun otro insulto
+    rounds:
+    - MICS5
+  - ticker: CD3H
+    module: hh
+    label_idx: 11
+    text: Lo/la llamó tonto/a, perezoso/a
+    rounds:
+    - MICS5
+  - ticker: CD3H
+    module: hh
+    label_idx: 12
+    text: Lo/la llamó tonto/a, perezoso/a o alguna otra cosa parecida
+    rounds:
+    - MICS5
+  - ticker: CD3H
+    module: hh
+    label_idx: 13
+    text: 'Metodo usado: usar las palabras tonto(a), flojo(a) o alguna otra cosa parecida'
     rounds:
     - MICS5
 BeatKid:
