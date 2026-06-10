@@ -1,0 +1,23 @@
+# hh_raw.yaml
+# 这是 hh.sav 原始问卷的列名与标签字典模板。
+# 每个条目对应 hh.sav 中的一列。
+#
+# 字段说明：
+#   column_in_raw_sav       : SAV 文件中的原始列名（变量名）
+#   column_label_in_raw_sav : SAV 文件中该列对应的变量标签
+
+columns:
+  - column_in_raw_sav: HH1
+    column_label_in_raw_sav: Cluster number
+
+  - column_in_raw_sav: HH2
+    column_label_in_raw_sav: Household number
+
+  - column_in_raw_sav: HH3
+    column_label_in_raw_sav: HH3.Interviewer number
+
+  - column_in_raw_sav: HH4
+    column_label_in_raw_sav: HH4.Supervisor Number
+
+  - column_in_raw_sav: HH5D
+    column_label_in_raw_sav: HH5D.Day of interview
