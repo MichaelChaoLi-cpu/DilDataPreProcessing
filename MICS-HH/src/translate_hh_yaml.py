@@ -12,6 +12,7 @@ from __future__ import annotations
 import csv
 import logging
 import sys
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 import yaml
@@ -66,15 +67,58 @@ def _detect_language(labels: list[str]) -> tuple[str, int, int, int, int]:
     return r.text.strip().strip("."), r.input_tokens, r.output_tokens, r.thoughts_tokens, r.total_tokens
 
 
-def _translate_to_english(label: str, source_language: str) -> tuple[str, int, int, int, int]:
-    """Returns (english_label, input_tokens, output_tokens, thoughts_tokens, total_tokens)."""
+_TRANSLATE_BATCH_SIZE = 80
+
+
+def _translate_batch(labels: list[str], source_language: str) -> tuple[list[str], int, int, int, int]:
+    """Translate a list of labels in one LLM call. Returns (translations, tokens...)."""
+    numbered = "\n".join(f"{i+1}. {l}" for i, l in enumerate(labels))
     prompt = (
-        f"Translate the following survey column label from {source_language} to English. "
-        "Reply with only the translated label. Do not explain.\n\n"
-        f"{label}"
+        f"Translate the following survey column labels from {source_language} to English. "
+        "Reply with exactly one translated label per line in the same order, "
+        "prefixed with its number and a period (e.g. '1. translation'). "
+        "Do not explain.\n\n"
+        f"{numbered}"
     )
     r = call_llm(prompt)
-    return r.text.strip(), r.input_tokens, r.output_tokens, r.thoughts_tokens, r.total_tokens
+
+    line_map: dict[int, str] = {}
+    for line in r.text.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        dot = line.find(". ")
+        if dot == -1:
+            continue
+        try:
+            num = int(line[:dot].strip())
+            line_map[num] = line[dot + 2:].strip()
+        except ValueError:
+            pass
+
+    translations = [line_map.get(i + 1, labels[i]) for i in range(len(labels))]
+    return translations, r.input_tokens, r.output_tokens, r.thoughts_tokens, r.total_tokens
+
+
+def _translate_all(labels: list[str], source_language: str) -> tuple[list[str], int, int, int, int]:
+    """Translate all labels, chunking into batches if necessary."""
+    all_translations: list[str] = []
+    total_it = total_ot = total_tht = total_tt = 0
+    for start in range(0, len(labels), _TRANSLATE_BATCH_SIZE):
+        chunk = labels[start:start + _TRANSLATE_BATCH_SIZE]
+        trans, it, ot, tht, tt = _translate_batch(chunk, source_language)
+        all_translations.extend(trans)
+        total_it += it; total_ot += ot; total_tht += tht; total_tt += tt
+    return all_translations, total_it, total_ot, total_tht, total_tt
+
+
+def _embed_parallel(texts: list[str], max_workers: int = 10) -> list[list[float]]:
+    results: list[list[float] | None] = [None] * len(texts)
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = {executor.submit(embed_text, text): i for i, text in enumerate(texts)}
+        for future in as_completed(futures):
+            results[futures[future]] = future.result()
+    return results  # type: ignore[return-value]
 
 
 def process_dataset(raw_yaml_path: Path, out_yaml_path: Path, out_csv_path: Path) -> None:
@@ -105,34 +149,30 @@ def process_dataset(raw_yaml_path: Path, out_yaml_path: Path, out_csv_path: Path
     total_tokens         += tt
     is_english = language.lower() == "english"
 
+    raw_labels = [str(col.get("column_label_in_raw_sav", "")) for col in columns]
+
+    if is_english:
+        english_labels = raw_labels
+    else:
+        english_labels, it, ot, tht, tt = _translate_all(raw_labels, language)
+        total_input_tokens   += it
+        total_output_tokens  += ot
+        total_thoughts_tokens += tht
+        total_tokens         += tt
+
+    print(f"  embedding {len(columns)} columns in parallel …", flush=True)
+    embeddings = _embed_parallel(english_labels)
+
     out_columns_yaml = []
     emb_rows = []
-
-    for idx, col in enumerate(columns):
-        raw_label = str(col.get("column_label_in_raw_sav", ""))
-
-        if is_english:
-            english_label = raw_label
-        else:
-            english_label, it, ot, tht, tt = _translate_to_english(raw_label, language)
-            total_input_tokens   += it
-            total_output_tokens  += ot
-            total_thoughts_tokens += tht
-            total_tokens         += tt
-
-        embedding = embed_text(english_label)
-
+    for col, raw_label, english_label, embedding in zip(columns, raw_labels, english_labels, embeddings):
         out_columns_yaml.append({
-            "column_in_raw_sav": col["column_in_raw_sav"],
+            "column_in_raw_sav":       col["column_in_raw_sav"],
             "column_label_in_raw_sav": raw_label,
             "column_label_in_english": english_label,
         })
         emb_rows.append([col["column_in_raw_sav"]] + embedding)
-
-        print(
-            f"  [{idx+1}/{len(columns)}] {col['column_in_raw_sav']}: {english_label[:60]}",
-            flush=True,
-        )
+        print(f"  {col['column_in_raw_sav']}: {english_label[:60]}", flush=True)
 
     out_yaml_path.parent.mkdir(parents=True, exist_ok=True)
     with open(out_yaml_path, "w", encoding="utf-8") as f:

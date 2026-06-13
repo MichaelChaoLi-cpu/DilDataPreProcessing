@@ -31,7 +31,7 @@ def call_llm(prompt: str, retries: int = 3, backoff: float = 5.0) -> LLMResult:
     from google.genai import types
 
     client = _get_client()
-    model = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
+    model = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash-lite")
     temperature = float(os.environ.get("GEMINI_TEMPERATURE", "0.2"))
     max_tokens = int(os.environ.get("GEMINI_MAX_TOKENS", "8192"))
     config = types.GenerateContentConfig(
@@ -49,7 +49,14 @@ def call_llm(prompt: str, retries: int = 3, backoff: float = 5.0) -> LLMResult:
             output_tokens  = usage.candidates_token_count or 0
             thoughts_tokens = usage.thoughts_token_count or 0
             total_tokens   = usage.total_token_count or 0
-            return LLMResult(response.text, input_tokens, output_tokens, thoughts_tokens, total_tokens)
+            # response.text leaks thought content on gemini-2.5-flash;
+            # extract only non-thought parts explicitly.
+            parts = response.candidates[0].content.parts
+            text = "".join(
+                p.text for p in parts
+                if not getattr(p, "thought", False) and p.text
+            )
+            return LLMResult(text, input_tokens, output_tokens, thoughts_tokens, total_tokens)
         except Exception as e:
             last_exc = e
             time.sleep(backoff * (2 ** attempt))
