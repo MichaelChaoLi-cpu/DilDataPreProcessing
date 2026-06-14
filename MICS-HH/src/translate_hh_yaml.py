@@ -166,11 +166,21 @@ def process_dataset(raw_yaml_path: Path, out_yaml_path: Path, out_csv_path: Path
     out_columns_yaml = []
     emb_rows = []
     for col, raw_label, english_label, embedding in zip(columns, raw_labels, english_labels, embeddings):
-        out_columns_yaml.append({
+        out_col = {
             "column_in_raw_sav":       col["column_in_raw_sav"],
             "column_label_in_raw_sav": raw_label,
             "column_label_in_english": english_label,
-        })
+        }
+        for key in (
+            "value_labels",
+            "readstat_variable_type",
+            "original_variable_type",
+            "variable_measure",
+            "missing_ranges",
+        ):
+            if key in col:
+                out_col[key] = col[key]
+        out_columns_yaml.append(out_col)
         emb_rows.append([col["column_in_raw_sav"]] + embedding)
         print(f"  {col['column_in_raw_sav']}: {english_label[:60]}", flush=True)
 

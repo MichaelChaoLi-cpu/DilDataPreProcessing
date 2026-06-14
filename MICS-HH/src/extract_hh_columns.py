@@ -42,6 +42,21 @@ def find_hh_sav(folder: Path) -> Path | None:
     return triple_h[0] if len(triple_h) == 1 else None
 
 
+def _metadata_value(meta, attr: str, col: str, default=None):
+    value = getattr(meta, attr, default)
+    if isinstance(value, dict):
+        return value.get(col, default)
+    return default
+
+
+def _value_labels(meta, col: str) -> dict:
+    labels = _metadata_value(meta, "variable_value_labels", col, None)
+    if labels is None:
+        label_name = _metadata_value(meta, "variable_to_label", col, None)
+        labels = getattr(meta, "value_labels", {}).get(label_name, {}) if label_name else {}
+    return dict(labels or {})
+
+
 def extract_dataset(folder: Path) -> None:
     sav_path = find_hh_sav(folder)
     if sav_path is None:
@@ -60,6 +75,11 @@ def extract_dataset(folder: Path) -> None:
         {
             "column_in_raw_sav": col,
             "column_label_in_raw_sav": meta.column_names_to_labels.get(col, ""),
+            "value_labels": _value_labels(meta, col),
+            "readstat_variable_type": _metadata_value(meta, "readstat_variable_types", col, ""),
+            "original_variable_type": _metadata_value(meta, "original_variable_types", col, ""),
+            "variable_measure": _metadata_value(meta, "variable_measure", col, ""),
+            "missing_ranges": _metadata_value(meta, "missing_ranges", col, []),
         }
         for col in meta.column_names
     ]
