@@ -91,21 +91,24 @@ def _load_alignment() -> dict[str, list[dict]]:
 
 def _build_dataset_map(
     alignment: dict[str, list[dict]],
-) -> dict[str, dict[str, dict]]:
-    """Return {dataset_name: {canonical_varname: best_entry}}."""
-    # Group candidates by (dataset, canonical_varname)
+) -> dict[str, dict[str, list[dict]]]:
+    """Return {dataset_name: {canonical_varname: [entries]}}.
+
+    For derived entries with multiple misaligned sources, disambiguation is done
+    here and a single-element list is returned.  For explicit entries, all
+    candidates are kept so _process_dataset can coalesce them.
+    """
     candidates: dict[tuple[str, str], list[dict]] = defaultdict(list)
     for canonical_varname, entries in alignment.items():
         for entry in entries:
             candidates[(entry["dataset_name"], canonical_varname)].append(entry)
 
-    result: dict[str, dict[str, dict]] = defaultdict(dict)
+    result: dict[str, dict[str, list[dict]]] = defaultdict(dict)
     for (dataset_name, canonical_varname), entries in candidates.items():
         if len(entries) == 1:
-            result[dataset_name][canonical_varname] = entries[0]
+            result[dataset_name][canonical_varname] = entries
             continue
 
-        # Multiple entries -- only expected for derived with misaligned sources
         if entries[0]["source_kind"] == "derived":
             derivation = entries[0]["derivation"]
             keywords = _DERIVATION_KEYWORDS.get(derivation, [])
@@ -123,13 +126,10 @@ def _build_dataset_map(
                     dataset_name, canonical_varname,
                 )
                 best = entries[0]
-            result[dataset_name][canonical_varname] = best
+            result[dataset_name][canonical_varname] = [best]
         else:
-            logger.warning(
-                "Multiple explicit entries for %s / %s; using first",
-                dataset_name, canonical_varname,
-            )
-            result[dataset_name][canonical_varname] = entries[0]
+            # Keep all explicit entries; _process_dataset will coalesce them.
+            result[dataset_name][canonical_varname] = entries
 
     return result
 
@@ -173,7 +173,7 @@ def _col_lookup(df: pd.DataFrame, raw_col: str) -> str | None:
 
 def _process_dataset(
     dataset_name: str,
-    canonical_map: dict[str, dict],
+    canonical_map: dict[str, list[dict]],
     dedup_primary: dict[str, str],
 ) -> pd.DataFrame | None:
     folder = RAW_DATA_DIR / dataset_name
@@ -190,31 +190,53 @@ def _process_dataset(
 
     output_cols: dict[str, pd.Series] = {}
 
-    for canonical_varname, entry in canonical_map.items():
-        # Prefer dedup primary column when available
-        preferred_col = dedup_primary.get(canonical_varname, entry["column_in_raw_sav"])
-        actual_col = _col_lookup(df, preferred_col)
+    for canonical_varname, entries in canonical_map.items():
+        entry = entries[0]
 
-        # Fall back to alignment column if dedup primary is absent from SAV
-        if actual_col is None and preferred_col != entry["column_in_raw_sav"]:
+        if entry["source_kind"] == "derived":
+            # Single disambiguated entry; apply derivation function.
             actual_col = _col_lookup(df, entry["column_in_raw_sav"])
-            if actual_col is not None:
+            if actual_col is None:
                 logger.debug(
-                    "%s: dedup primary %s missing, used alignment col %s for %s",
-                    dataset_name, preferred_col, actual_col, canonical_varname,
+                    "%s: derived column %s not found (canonical=%s)",
+                    dataset_name, entry["column_in_raw_sav"], canonical_varname,
                 )
-
-        if actual_col is None:
-            logger.debug(
-                "%s: column %s not found (canonical=%s)",
-                dataset_name, preferred_col, canonical_varname,
+                continue
+            output_cols[canonical_varname] = _apply_derivation(
+                df[actual_col], entry["derivation"]
             )
             continue
 
-        series = df[actual_col]
-        if entry["source_kind"] == "derived":
-            series = _apply_derivation(series, entry["derivation"])
+        # Explicit: build ordered column list — dedup primary first, then others.
+        primary_col = dedup_primary.get(canonical_varname)
+        seen: set[str] = set()
+        col_order: list[str] = []
+        if primary_col:
+            col_order.append(primary_col)
+            seen.add(primary_col.lower())
+        for e in entries:
+            raw = e["column_in_raw_sav"]
+            if raw.lower() not in seen:
+                col_order.append(raw)
+                seen.add(raw.lower())
 
+        # Coalesce: primary fills first; NaN slots are filled from subsequent columns.
+        series: pd.Series | None = None
+        for raw_col in col_order:
+            actual_col = _col_lookup(df, raw_col)
+            if actual_col is None:
+                continue
+            if series is None:
+                series = df[actual_col].copy()
+            else:
+                series = series.combine_first(df[actual_col])
+
+        if series is None:
+            logger.debug(
+                "%s: no columns found for canonical=%s",
+                dataset_name, canonical_varname,
+            )
+            continue
         output_cols[canonical_varname] = series
 
     if not output_cols:
