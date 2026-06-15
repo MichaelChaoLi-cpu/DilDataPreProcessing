@@ -159,3 +159,145 @@ PostgreSQL mda/
 ```
 
 ---
+
+## Chapter 2 — MICS Household Listing Questionnaire (MICS-HL)
+
+### Overview
+
+MICS household listing questionnaires (`hl.sav`) record one row per household member across all six survey rounds. Each person's line number, sex, age, relationship to head, education, and eligibility pointers for child and women modules are captured here. This module produces a single merged person-level dataset using the same pipeline as MICS-HH.
+
+**Current scale**
+
+| Item | Count |
+|------|-------|
+| Datasets processed | 228 |
+| Canonical variables | 90 |
+| Alignment entries | 9,914 |
+| Rows in merged dataset | 11,747,970 |
+
+---
+
+### Pipeline
+
+```
+raw .sav files
+      │
+      ▼
+1. extract_hl_columns.py        Extract column metadata
+      │
+      ▼
+2. translate_hl_yaml.py         Translate non-English labels → English  [LLM]
+      │
+      ▼
+3. canonicalize_hl_columns.py   Map labels to canonical variable names  [rules]
+      │
+      ▼
+4. dedup_hl_columns_v2.py       Flag duplicate columns within each questionnaire
+      │
+      ▼
+5. align_hl_columns_v2.py       Align canonical variables across all datasets
+      │
+      ▼
+6. merge_hl_to_parquet.py       Merge all .sav files into one parquet
+      │
+      ▼
+7. upload_hl_to_postgres.py     Upload to PostgreSQL
+```
+
+---
+
+### Step Details
+
+#### Step 1 — Extract column metadata
+**Script:** `MICS-HL/src/extract_hl_columns.py`  
+**Input:** `{RAW_DATA_DIR}/{dataset}/hl.sav`  
+**Output:** `MICS-HL/data/HL/raw/{dataset}/hl.yaml`
+
+Reads every `hl.sav` using `pyreadstat`. Supports country-prefixed filenames (e.g. `BHhl.sav`). Datasets without an `hl.sav` are logged and skipped.
+
+#### Step 2 — Translate labels
+**Script:** `MICS-HL/src/translate_hl_yaml.py`  
+**Input:** `data/HL/raw/{dataset}/hl.yaml`  
+**Output:** `data/HL/translate/{dataset}/hl.yaml`, `data/HL/translate_embedding/{dataset}/hl.csv`
+
+Same approach as MICS-HH. When the LLM returns an empty response (e.g. due to safety filters), the original labels are kept for that batch.
+
+#### Step 3 — Canonicalize
+**Script:** `MICS-HL/src/canonicalize_hl_columns.py`  
+**Rule engine:** `MICS-HL/src/canonical_hl.py`  
+**Input:** `data/HL/translate/{dataset}/hl.yaml`  
+**Output:** `data/HL/canonical/{dataset}/hl.yaml`
+
+Person-level rule differences from MICS-HH:
+- `Age` and `Sex` map to `age` and `sex` (not household-head variants).
+- Covers eligibility pointers (`eligible_woman_line_number`, `mother_caretaker_line_number`), family links, education, child labour, and mosquito net variables.
+
+#### Step 4 — Deduplicate within questionnaires
+**Script:** `MICS-HL/src/dedup_hl_columns_v2.py`  
+**Input:** `data/HL/canonical/{dataset}/hl.yaml`  
+**Output:** `data/HL/questionnaire_dedup_v2/{dataset}/dup.yaml`
+
+Identifies duplicate column groups within each questionnaire. 1,224 groups found across 230 datasets (540 `duplicate_candidate`, 679 `duplicate_needs_review`, 5 `derived_overlap`).
+
+#### Step 5 — Align across datasets
+**Script:** `MICS-HL/src/align_hl_columns_v2.py`  
+**Input:** `data/HL/canonical/{dataset}/hl.yaml`  
+**Output:** `data/HL/alignment_v2.yaml`, `data/HL/alignment_summary_v2.csv`
+
+Aggregates per-dataset mappings into a single cross-questionnaire alignment dictionary. 90 canonical variables identified.
+
+#### Step 6 — Merge to parquet
+**Script:** `MICS-HL/src/merge_hl_to_parquet.py`  
+**Input:** raw `.sav` files + `alignment_v2.yaml` + `questionnaire_dedup_v2/`  
+**Output:** `data/HL/processed_data/hl_merged.parquet`
+
+Same coalescing and derivation logic as MICS-HH. The first column is `dataset_name`.
+
+#### Step 7 — Upload to PostgreSQL
+**Script:** `MICS-HL/src/upload_hl_to_postgres.py`  
+**Database:** `localhost:5432 / mda`
+
+| Table | Description |
+|-------|-------------|
+| `final_HL_MICS2MICS6` | Merged person-level data (11,747,970 rows × 91 cols) |
+| `ind_que_HL_MICSMICS` | Variable index: canonical name, dataset, raw column, English label |
+
+---
+
+### Run Commands
+
+```bash
+# Full pipeline (from repository root)
+uv run MICS-HL/src/extract_hl_columns.py
+uv run MICS-HL/src/translate_hl_yaml.py
+uv run MICS-HL/src/canonicalize_hl_columns.py
+uv run MICS-HL/src/dedup_hl_columns_v2.py
+uv run MICS-HL/src/align_hl_columns_v2.py
+uv run MICS-HL/src/merge_hl_to_parquet.py
+uv run MICS-HL/src/upload_hl_to_postgres.py
+```
+
+---
+
+### Data Flow
+
+```
+RAW_DATA_DIR/                        (external drive, set in .env)
+  {dataset}/hl.sav
+
+MICS-HL/data/HL/
+  raw/{dataset}/hl.yaml              column metadata
+  translate/{dataset}/hl.yaml        English-translated labels
+  translate_embedding/{dataset}/     embeddings for clustering
+  canonical/{dataset}/hl.yaml        canonical assignments
+  questionnaire_dedup_v2/{dataset}/  duplicate decisions
+  alignment_v2.yaml                  cross-dataset alignment
+  alignment_summary_v2.csv           summary statistics
+  processed_data/hl_merged.parquet   final merged dataset
+
+PostgreSQL mda/
+  final_HL_MICS2MICS6                merged person-level data table
+  ind_que_HL_MICSMICS                variable index table
+```
+
+---
