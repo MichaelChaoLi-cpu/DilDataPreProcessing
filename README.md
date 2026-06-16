@@ -301,3 +301,158 @@ PostgreSQL mda/
 ```
 
 ---
+
+## Chapter 3 — MICS Children's Questionnaire (MICS-CH)
+
+### Overview
+
+MICS children's questionnaires (`ch.sav`) record one row per child under five across six survey rounds (MICS2–MICS6). Topics covered include child demographics, birth registration, early childhood education, vitamin A supplementation, breastfeeding and infant feeding, dietary diversity, diarrhea/ARI, malaria, immunization, anthropometry, child discipline, child functioning, water and sanitation, and household characteristics. This module produces a single merged child-level dataset using the same pipeline as MICS-HH and MICS-HL.
+
+**Current scale**
+
+| Item | Count |
+|------|-------|
+| Datasets processed | 254 |
+| Canonical variables | 448 |
+| Alignment entries | 58,088 |
+| Rows in merged dataset | 1,684,203 |
+
+---
+
+### Pipeline
+
+```
+raw .sav files
+      │
+      ▼
+1. extract_ch_columns.py        Extract column metadata
+      │
+      ▼
+2. translate_ch_yaml.py         Translate non-English labels → English  [LLM]
+      │
+      ▼
+3. canonicalize_ch_columns.py   Map labels to canonical variable names  [rules]
+      │
+      ▼
+4. dedup_ch_columns_v2.py       Flag duplicate columns within each questionnaire
+      │
+      ▼
+5. align_ch_columns_v2.py       Align canonical variables across all datasets
+      │
+      ▼
+6. merge_ch_to_parquet.py       Merge all .sav files into one parquet
+      │
+      ▼
+7. upload_ch_to_postgres.py     Upload to PostgreSQL
+```
+
+---
+
+### Step Details
+
+#### Step 1 — Extract column metadata
+**Script:** `MICS-CH/src/extract_ch_columns.py`  
+**Input:** `{RAW_DATA_DIR}/{dataset}/ch.sav`  
+**Output:** `MICS-CH/data/CH/raw/{dataset}/ch.yaml`
+
+Reads every `ch.sav` using `pyreadstat`. Supports country-prefixed filenames (e.g. `BHch.sav`, `CHch.sav`, `chAL.sav`). Datasets without a recognisable `ch.sav` are logged and skipped.
+
+#### Step 2 — Translate labels
+**Script:** `MICS-CH/src/translate_ch_yaml.py`  
+**Input:** `data/CH/raw/{dataset}/ch.yaml`  
+**Output:** `data/CH/translate/{dataset}/ch.yaml`, `data/CH/translate_embedding/{dataset}/ch.csv`
+
+Same approach as MICS-HH. When the LLM returns an empty response (e.g. due to safety filters), the original labels are kept for that batch.
+
+#### Step 3 — Canonicalize
+**Script:** `MICS-CH/src/canonicalize_ch_columns.py`  
+**Rule engine:** `MICS-CH/src/canonical_ch.py`  
+**Input:** `data/CH/translate/{dataset}/ch.yaml`  
+**Output:** `data/CH/canonical/{dataset}/ch.yaml`
+
+Child-level rule engine covering all MICS child modules:
+- **EC** — early childhood education and ECDI milestones
+- **VA** — vitamin A supplementation
+- **BF** — breastfeeding and infant feeding
+- **DD** — dietary diversity (MICS5/6)
+- **CA** — diarrhea and ARI
+- **ML** — malaria
+- **IM** — immunization (dates and recall)
+- **AN** — anthropometry (height, weight, MUAC, WHO flags, BMI)
+- **BR** — birth registration
+- **CD** — child discipline (MICS5/6)
+- **CF** — child functioning/disability (MICS6)
+- **WS** — water and sanitation
+- **HC** — household characteristics and assets
+
+Overall recognition rate: 72.4% across 254 datasets (67,911 total entries, 49,166 recognised).
+
+#### Step 4 — Deduplicate within questionnaires
+**Script:** `MICS-CH/src/dedup_ch_columns_v2.py`  
+**Input:** `data/CH/canonical/{dataset}/ch.yaml`  
+**Output:** `data/CH/questionnaire_dedup_v2/{dataset}/dup.yaml`
+
+Identifies duplicate column groups within each questionnaire. 8,252 groups found across 254 datasets (3,356 `duplicate_candidate`, 3,873 `duplicate_needs_review`, 1,023 `derived_overlap`).
+
+#### Step 5 — Align across datasets
+**Script:** `MICS-CH/src/align_ch_columns_v2.py`  
+**Input:** `data/CH/canonical/{dataset}/ch.yaml`  
+**Output:** `data/CH/alignment_v2.yaml`, `data/CH/alignment_summary_v2.csv`
+
+Aggregates per-dataset mappings into a single cross-questionnaire alignment dictionary. 448 canonical variables identified.
+
+#### Step 6 — Merge to parquet
+**Script:** `MICS-CH/src/merge_ch_to_parquet.py`  
+**Input:** raw `.sav` files + `alignment_v2.yaml` + `questionnaire_dedup_v2/`  
+**Output:** `data/CH/processed_data/ch_merged.parquet`
+
+Same coalescing and derivation logic as MICS-HH. The first column is `dataset_name`. 251 datasets merged successfully; 3 skipped due to missing or unreadable files.
+
+#### Step 7 — Upload to PostgreSQL
+**Script:** `MICS-CH/src/upload_ch_to_postgres.py`  
+**Database:** `localhost:5432 / mda`
+
+| Table | Description |
+|-------|-------------|
+| `final_CH_MICS2MICS6` | Merged child-level data (1,684,203 rows × 449 cols) |
+| `ind_que_CH_MICSMICS` | Variable index: canonical name, dataset, raw column, English label |
+
+---
+
+### Run Commands
+
+```bash
+# Full pipeline (from repository root)
+uv run MICS-CH/src/extract_ch_columns.py
+uv run MICS-CH/src/translate_ch_yaml.py
+uv run MICS-CH/src/canonicalize_ch_columns.py
+uv run MICS-CH/src/dedup_ch_columns_v2.py
+uv run MICS-CH/src/align_ch_columns_v2.py
+uv run MICS-CH/src/merge_ch_to_parquet.py
+uv run MICS-CH/src/upload_ch_to_postgres.py
+```
+
+---
+
+### Data Flow
+
+```
+RAW_DATA_DIR/                        (external drive, set in .env)
+  {dataset}/ch.sav
+
+MICS-CH/data/CH/
+  raw/{dataset}/ch.yaml              column metadata
+  translate/{dataset}/ch.yaml        English-translated labels
+  translate_embedding/{dataset}/     embeddings for clustering
+  canonical/{dataset}/ch.yaml        canonical assignments
+  questionnaire_dedup_v2/{dataset}/  duplicate decisions
+  alignment_v2.yaml                  cross-dataset alignment
+  alignment_summary_v2.csv           summary statistics
+  processed_data/ch_merged.parquet   final merged dataset
+
+PostgreSQL mda/
+  final_CH_MICS2MICS6                merged child-level data table
+  ind_que_CH_MICSMICS                variable index table
+```
+
+---

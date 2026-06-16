@@ -301,3 +301,158 @@ PostgreSQL mda/
 ```
 
 ---
+
+## 第三章 — MICS 儿童问卷（MICS-CH）
+
+### 概述
+
+MICS 儿童问卷（`ch.sav`）记录六轮调查（MICS2–MICS6）中每名五岁以下儿童的一行数据。涵盖主题包括：儿童人口学信息、出生登记、早期儿童教育、维生素 A 补充、母乳喂养与婴儿喂养、膳食多样性、腹泻/急性呼吸道感染、疟疾、免疫接种、人体测量、儿童管教、儿童功能（残障）、水与卫生、以及家庭特征。本模块与 MICS-HH 和 MICS-HL 采用相同的流水线，产出单一合并的儿童级数据集。
+
+**当前规模**
+
+| 项目 | 数量 |
+|------|-------|
+| 已处理数据集 | 254 |
+| 标准变量数 | 448 |
+| 对齐条目数 | 58,088 |
+| 合并数据集行数 | 1,684,203 |
+
+---
+
+### 流水线
+
+```
+原始 .sav 文件
+      │
+      ▼
+1. extract_ch_columns.py        提取列元数据
+      │
+      ▼
+2. translate_ch_yaml.py         非英文标签翻译为英文  [LLM]
+      │
+      ▼
+3. canonicalize_ch_columns.py   将标签映射为标准变量名  [规则引擎]
+      │
+      ▼
+4. dedup_ch_columns_v2.py       标记同一问卷内的重复列
+      │
+      ▼
+5. align_ch_columns_v2.py       跨数据集对齐标准变量
+      │
+      ▼
+6. merge_ch_to_parquet.py       将所有 .sav 合并为一个 parquet
+      │
+      ▼
+7. upload_ch_to_postgres.py     上传至 PostgreSQL
+```
+
+---
+
+### 各步骤说明
+
+#### 第 1 步 — 提取列元数据
+**脚本：** `MICS-CH/src/extract_ch_columns.py`  
+**输入：** `{RAW_DATA_DIR}/{dataset}/ch.sav`  
+**输出：** `MICS-CH/data/CH/raw/{dataset}/ch.yaml`
+
+使用 `pyreadstat` 读取每个 `ch.sav`。支持带国家代码前缀/后缀的文件名（如 `BHch.sav`、`CHch.sav`、`chAL.sav`）。找不到可识别 `ch.sav` 的数据集会被记录并跳过。
+
+#### 第 2 步 — 翻译标签
+**脚本：** `MICS-CH/src/translate_ch_yaml.py`  
+**输入：** `data/CH/raw/{dataset}/ch.yaml`  
+**输出：** `data/CH/translate/{dataset}/ch.yaml`、`data/CH/translate_embedding/{dataset}/ch.csv`
+
+与 MICS-HH 相同。当 LLM 返回空响应（如被安全过滤）时，该批次保留原始标签。
+
+#### 第 3 步 — 标准化
+**脚本：** `MICS-CH/src/canonicalize_ch_columns.py`  
+**规则引擎：** `MICS-CH/src/canonical_ch.py`  
+**输入：** `data/CH/translate/{dataset}/ch.yaml`  
+**输出：** `data/CH/canonical/{dataset}/ch.yaml`
+
+儿童级规则引擎，覆盖所有 MICS 儿童模块：
+- **EC** — 早期儿童教育与 ECDI 发展里程碑
+- **VA** — 维生素 A 补充
+- **BF** — 母乳喂养与婴儿喂养
+- **DD** — 膳食多样性（MICS5/6）
+- **CA** — 腹泻与急性呼吸道感染
+- **ML** — 疟疾
+- **IM** — 免疫接种（日期与回忆）
+- **AN** — 人体测量（身高、体重、MUAC、WHO 标志位、BMI）
+- **BR** — 出生登记
+- **CD** — 儿童管教（MICS5/6）
+- **CF** — 儿童功能/残障（MICS6）
+- **WS** — 水与卫生
+- **HC** — 家庭特征与资产
+
+总体识别率：254 个数据集中 72.4%（共 67,911 个条目，49,166 个已识别）。
+
+#### 第 4 步 — 问卷内去重
+**脚本：** `MICS-CH/src/dedup_ch_columns_v2.py`  
+**输入：** `data/CH/canonical/{dataset}/ch.yaml`  
+**输出：** `data/CH/questionnaire_dedup_v2/{dataset}/dup.yaml`
+
+识别同一问卷内映射到相同标准变量的列组。254 个数据集共发现 8,252 个组（3,356 个 `duplicate_candidate`、3,873 个 `duplicate_needs_review`、1,023 个 `derived_overlap`）。
+
+#### 第 5 步 — 跨数据集对齐
+**脚本：** `MICS-CH/src/align_ch_columns_v2.py`  
+**输入：** `data/CH/canonical/{dataset}/ch.yaml`  
+**输出：** `data/CH/alignment_v2.yaml`、`data/CH/alignment_summary_v2.csv`
+
+将所有数据集的映射汇总为单一跨问卷对齐字典，共识别出 448 个标准变量。
+
+#### 第 6 步 — 合并为 parquet
+**脚本：** `MICS-CH/src/merge_ch_to_parquet.py`  
+**输入：** 原始 `.sav` 文件 + `alignment_v2.yaml` + `questionnaire_dedup_v2/`  
+**输出：** `data/CH/processed_data/ch_merged.parquet`
+
+与 MICS-HH 相同的合并与派生逻辑。第一列为 `dataset_name`。251 个数据集成功合并，3 个因文件缺失或编码错误被跳过。
+
+#### 第 7 步 — 上传至 PostgreSQL
+**脚本：** `MICS-CH/src/upload_ch_to_postgres.py`  
+**数据库：** `localhost:5432 / mda`
+
+| 表名 | 说明 |
+|-------|-------------|
+| `final_CH_MICS2MICS6` | 合并儿童数据（1,684,203 行 × 449 列） |
+| `ind_que_CH_MICSMICS` | 变量索引：标准变量名、数据集、原始列名、英文标签 |
+
+---
+
+### 运行命令
+
+```bash
+# 完整流水线（从仓库根目录运行）
+uv run MICS-CH/src/extract_ch_columns.py
+uv run MICS-CH/src/translate_ch_yaml.py
+uv run MICS-CH/src/canonicalize_ch_columns.py
+uv run MICS-CH/src/dedup_ch_columns_v2.py
+uv run MICS-CH/src/align_ch_columns_v2.py
+uv run MICS-CH/src/merge_ch_to_parquet.py
+uv run MICS-CH/src/upload_ch_to_postgres.py
+```
+
+---
+
+### 数据流
+
+```
+RAW_DATA_DIR/                        （外部存储，在 .env 中配置）
+  {dataset}/ch.sav
+
+MICS-CH/data/CH/
+  raw/{dataset}/ch.yaml              列元数据
+  translate/{dataset}/ch.yaml        英文翻译后的标签
+  translate_embedding/{dataset}/     聚类用嵌入向量
+  canonical/{dataset}/ch.yaml        标准变量分配结果
+  questionnaire_dedup_v2/{dataset}/  去重决策
+  alignment_v2.yaml                  跨数据集对齐字典
+  alignment_summary_v2.csv           汇总统计
+  processed_data/ch_merged.parquet   最终合并数据集
+
+PostgreSQL mda/
+  final_CH_MICS2MICS6                合并儿童数据表
+  ind_que_CH_MICSMICS                变量索引表
+```
+
+---
