@@ -456,3 +456,165 @@ PostgreSQL mda/
 ```
 
 ---
+
+## Chapter 4 — MICS Women's Questionnaire (MICS-WM)
+
+### Overview
+
+MICS women's questionnaires (`wm.sav`) record one row per eligible woman (typically aged 15–49) across six survey rounds (MICS2–MICS6). Topics covered include woman background and education, marriage, birth history, fertility preferences, family planning, antenatal care, delivery, postnatal care, newborn cord care, early breastfeeding, child health, domestic violence, sexual behaviour, HIV/AIDS knowledge and testing, tobacco and alcohol, anthropometry, media exposure, wealth, household assets, functional difficulties, discrimination, menstrual hygiene, health insurance, water and sanitation, malaria prevention, migration, ethnicity and religion, and female genital mutilation. This module produces a single merged woman-level dataset using the same pipeline as MICS-HH, MICS-HL, and MICS-CH.
+
+**Current scale**
+
+| Item | Count |
+|------|-------|
+| Datasets processed | 254 |
+| Canonical variables | 461 |
+| Alignment entries | 47,589 |
+| Rows in merged dataset | 2,960,835 |
+
+---
+
+### Pipeline
+
+```
+raw .sav files
+      │
+      ▼
+1. extract_wm_columns.py        Extract column metadata
+      │
+      ▼
+2. translate_wm_yaml.py         Translate non-English labels → English  [LLM]
+      │
+      ▼
+3. canonicalize_wm_columns.py   Map labels to canonical variable names  [rules]
+      │
+      ▼
+4. dedup_wm_columns_v2.py       Flag duplicate columns within each questionnaire
+      │
+      ▼
+5. align_wm_columns_v2.py       Align canonical variables across all datasets
+      │
+      ▼
+6. merge_wm_to_parquet.py       Merge all .sav files into one parquet
+      │
+      ▼
+7. upload_wm_to_postgres.py     Upload to PostgreSQL
+```
+
+---
+
+### Step Details
+
+#### Step 1 — Extract column metadata
+**Script:** `MICS-WM/src/extract_wm_columns.py`  
+**Input:** `{RAW_DATA_DIR}/{dataset}/wm.sav`  
+**Output:** `MICS-WM/data/WM/raw/{dataset}/wm.yaml`
+
+Reads every `wm.sav` using `pyreadstat`. Datasets without a recognisable `wm.sav` are logged and skipped.
+
+#### Step 2 — Translate labels
+**Script:** `MICS-WM/src/translate_wm_yaml.py`  
+**Input:** `data/WM/raw/{dataset}/wm.yaml`  
+**Output:** `data/WM/translate/{dataset}/wm.yaml`
+
+Same approach as MICS-HH. When the LLM returns an empty response (e.g. due to safety filters), the original labels are kept for that batch.
+
+#### Step 3 — Canonicalize
+**Script:** `MICS-WM/src/canonicalize_wm_columns.py`  
+**Rule engine:** `MICS-WM/src/canonical_wm.py`  
+**Input:** `data/WM/translate/{dataset}/wm.yaml`  
+**Output:** `data/WM/canonical/{dataset}/wm.yaml`
+
+Women-level rule engine covering all MICS women modules:
+- **WB** — woman background, age, literacy, education
+- **MA** — marriage and union status
+- **BH** — birth history and child survival
+- **FP** — family planning and contraceptive use
+- **ANC** — antenatal care (provider type, frequency, content)
+- **DL** — delivery and postnatal care
+- **NC** — newborn cord care
+- **BF** — breastfeeding initiation and prelacteals
+- **CA** — child illness symptoms
+- **DV** — domestic violence (physical, sexual, emotional, justification)
+- **SB** — sexual behaviour
+- **HA** — HIV/AIDS knowledge, testing, and counseling
+- **TA** — tobacco and alcohol
+- **AN** — anthropometry
+- **MD** — media and communication
+- **WI** — wealth and household assets
+- **FD** — functional difficulties
+- **MH** — menstrual hygiene
+- **ML** — malaria prevention and net use
+- **MG** — migration
+- **FG** — female genital mutilation (FGM/C)
+
+Overall recognition rate: 61.1% mean across 254 datasets (47,589 total recognised entries).
+
+#### Step 4 — Deduplicate within questionnaires
+**Script:** `MICS-WM/src/dedup_wm_columns_v2.py`  
+**Input:** `data/WM/canonical/{dataset}/wm.yaml`  
+**Output:** `data/WM/questionnaire_dedup_v2/{dataset}/dup.yaml`
+
+Identifies duplicate column groups within each questionnaire. 4,806 groups found across 254 datasets (2,625 `duplicate_candidate`, 2,181 `duplicate_needs_review`, 0 `derived_overlap`).
+
+#### Step 5 — Align across datasets
+**Script:** `MICS-WM/src/align_wm_columns_v2.py`  
+**Input:** `data/WM/canonical/{dataset}/wm.yaml`  
+**Output:** `data/WM/alignment_v2.yaml`, `data/WM/alignment_summary_v2.csv`
+
+Aggregates per-dataset mappings into a single cross-questionnaire alignment dictionary. 461 canonical variables identified.
+
+#### Step 6 — Merge to parquet
+**Script:** `MICS-WM/src/merge_wm_to_parquet.py`  
+**Input:** raw `.sav` files + `alignment_v2.yaml` + `questionnaire_dedup_v2/`  
+**Output:** `data/WM/processed_data/wm_merged.parquet`
+
+Same coalescing and derivation logic as MICS-HH. The first column is `dataset_name`. 251 datasets merged successfully; 3 skipped due to missing or unreadable files.
+
+#### Step 7 — Upload to PostgreSQL
+**Script:** `MICS-WM/src/upload_wm_to_postgres.py`  
+**Database:** `localhost:5432 / mda`
+
+| Table | Description |
+|-------|-------------|
+| `final_WM_MICS2MICS6` | Merged women-level data (2,960,835 rows × 462 cols) |
+| `ind_que_WM_MICSMICS` | Variable index: canonical name, dataset, raw column, English label |
+
+---
+
+### Run Commands
+
+```bash
+# Full pipeline (from repository root)
+uv run MICS-WM/src/extract_wm_columns.py
+uv run MICS-WM/src/translate_wm_yaml.py
+uv run MICS-WM/src/canonicalize_wm_columns.py
+uv run MICS-WM/src/dedup_wm_columns_v2.py
+uv run MICS-WM/src/align_wm_columns_v2.py
+uv run MICS-WM/src/merge_wm_to_parquet.py
+uv run MICS-WM/src/upload_wm_to_postgres.py
+```
+
+---
+
+### Data Flow
+
+```
+RAW_DATA_DIR/                        (external drive, set in .env)
+  {dataset}/wm.sav
+
+MICS-WM/data/WM/
+  raw/{dataset}/wm.yaml              column metadata
+  translate/{dataset}/wm.yaml        English-translated labels
+  canonical/{dataset}/wm.yaml        canonical assignments
+  questionnaire_dedup_v2/{dataset}/  duplicate decisions
+  alignment_v2.yaml                  cross-dataset alignment
+  alignment_summary_v2.csv           summary statistics
+  processed_data/wm_merged.parquet   final merged dataset
+
+PostgreSQL mda/
+  final_WM_MICS2MICS6                merged women-level data table
+  ind_que_WM_MICSMICS                variable index table
+```
+
+---

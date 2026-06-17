@@ -456,3 +456,165 @@ PostgreSQL mda/
 ```
 
 ---
+
+## 第四章 — MICS 女性问卷（MICS-WM）
+
+### 概述
+
+MICS 女性问卷（`wm.sav`）记录六轮调查（MICS2–MICS6）中每名符合条件女性（通常为 15–49 岁）的一行数据。涵盖主题包括：女性基本情况与教育、婚姻状况、生育史、生育偏好、计划生育、产前检查、分娩、产后护理、新生儿脐带护理、早期母乳喂养、儿童健康、家庭暴力、性行为、艾滋病知识与检测、烟草与酒精、人体测量、媒体接触、财富与家庭资产、功能障碍、歧视、月经卫生、医疗保险、水与卫生、疟疾预防、移民、民族与宗教、以及女性生殖器切割。本模块与 MICS-HH、MICS-HL 和 MICS-CH 采用相同的流水线，产出单一合并的女性级数据集。
+
+**当前规模**
+
+| 项目 | 数量 |
+|------|-------|
+| 已处理数据集 | 254 |
+| 标准变量数 | 461 |
+| 对齐条目数 | 47,589 |
+| 合并数据集行数 | 2,960,835 |
+
+---
+
+### 流水线
+
+```
+原始 .sav 文件
+      │
+      ▼
+1. extract_wm_columns.py        提取列元数据
+      │
+      ▼
+2. translate_wm_yaml.py         非英文标签翻译为英文  [LLM]
+      │
+      ▼
+3. canonicalize_wm_columns.py   将标签映射为标准变量名  [规则引擎]
+      │
+      ▼
+4. dedup_wm_columns_v2.py       标记同一问卷内的重复列
+      │
+      ▼
+5. align_wm_columns_v2.py       跨数据集对齐标准变量
+      │
+      ▼
+6. merge_wm_to_parquet.py       将所有 .sav 合并为一个 parquet
+      │
+      ▼
+7. upload_wm_to_postgres.py     上传至 PostgreSQL
+```
+
+---
+
+### 各步骤说明
+
+#### 第 1 步 — 提取列元数据
+**脚本：** `MICS-WM/src/extract_wm_columns.py`  
+**输入：** `{RAW_DATA_DIR}/{dataset}/wm.sav`  
+**输出：** `MICS-WM/data/WM/raw/{dataset}/wm.yaml`
+
+使用 `pyreadstat` 读取每个 `wm.sav`。找不到可识别 `wm.sav` 的数据集会被记录并跳过。
+
+#### 第 2 步 — 翻译标签
+**脚本：** `MICS-WM/src/translate_wm_yaml.py`  
+**输入：** `data/WM/raw/{dataset}/wm.yaml`  
+**输出：** `data/WM/translate/{dataset}/wm.yaml`
+
+与 MICS-HH 相同。当 LLM 返回空响应（如被安全过滤）时，该批次保留原始标签。
+
+#### 第 3 步 — 标准化
+**脚本：** `MICS-WM/src/canonicalize_wm_columns.py`  
+**规则引擎：** `MICS-WM/src/canonical_wm.py`  
+**输入：** `data/WM/translate/{dataset}/wm.yaml`  
+**输出：** `data/WM/canonical/{dataset}/wm.yaml`
+
+女性级规则引擎，覆盖所有 MICS 女性模块：
+- **WB** — 女性基本情况、年龄、识字率、教育
+- **MA** — 婚姻与结合状况
+- **BH** — 生育史与儿童存活
+- **FP** — 计划生育与避孕方式
+- **ANC** — 产前检查（提供者类型、次数、内容）
+- **DL** — 分娩与产后护理
+- **NC** — 新生儿脐带护理
+- **BF** — 母乳喂养启动与初乳喂养
+- **CA** — 儿童疾病症状
+- **DV** — 家庭暴力（身体、性、情感、正当化认知）
+- **SB** — 性行为
+- **HA** — 艾滋病知识、检测与咨询
+- **TA** — 烟草与酒精
+- **AN** — 人体测量
+- **MD** — 媒体与通信
+- **WI** — 财富与家庭资产
+- **FD** — 功能障碍
+- **MH** — 月经卫生
+- **ML** — 疟疾预防与蚊帐使用
+- **MG** — 移民
+- **FG** — 女性生殖器切割（FGM/C）
+
+总体识别率：254 个数据集中平均 61.1%（共 47,589 个已识别条目）。
+
+#### 第 4 步 — 问卷内去重
+**脚本：** `MICS-WM/src/dedup_wm_columns_v2.py`  
+**输入：** `data/WM/canonical/{dataset}/wm.yaml`  
+**输出：** `data/WM/questionnaire_dedup_v2/{dataset}/dup.yaml`
+
+识别同一问卷内映射到相同标准变量的列组。254 个数据集共发现 4,806 个组（2,625 个 `duplicate_candidate`、2,181 个 `duplicate_needs_review`、0 个 `derived_overlap`）。
+
+#### 第 5 步 — 跨数据集对齐
+**脚本：** `MICS-WM/src/align_wm_columns_v2.py`  
+**输入：** `data/WM/canonical/{dataset}/wm.yaml`  
+**输出：** `data/WM/alignment_v2.yaml`、`data/WM/alignment_summary_v2.csv`
+
+将所有数据集的映射汇总为单一跨问卷对齐字典，共识别出 461 个标准变量。
+
+#### 第 6 步 — 合并为 parquet
+**脚本：** `MICS-WM/src/merge_wm_to_parquet.py`  
+**输入：** 原始 `.sav` 文件 + `alignment_v2.yaml` + `questionnaire_dedup_v2/`  
+**输出：** `data/WM/processed_data/wm_merged.parquet`
+
+与 MICS-HH 相同的合并与派生逻辑。第一列为 `dataset_name`。251 个数据集成功合并，3 个因文件缺失或编码错误被跳过。
+
+#### 第 7 步 — 上传至 PostgreSQL
+**脚本：** `MICS-WM/src/upload_wm_to_postgres.py`  
+**数据库：** `localhost:5432 / mda`
+
+| 表名 | 说明 |
+|-------|-------------|
+| `final_WM_MICS2MICS6` | 合并女性数据（2,960,835 行 × 462 列） |
+| `ind_que_WM_MICSMICS` | 变量索引：标准变量名、数据集、原始列名、英文标签 |
+
+---
+
+### 运行命令
+
+```bash
+# 完整流水线（从仓库根目录运行）
+uv run MICS-WM/src/extract_wm_columns.py
+uv run MICS-WM/src/translate_wm_yaml.py
+uv run MICS-WM/src/canonicalize_wm_columns.py
+uv run MICS-WM/src/dedup_wm_columns_v2.py
+uv run MICS-WM/src/align_wm_columns_v2.py
+uv run MICS-WM/src/merge_wm_to_parquet.py
+uv run MICS-WM/src/upload_wm_to_postgres.py
+```
+
+---
+
+### 数据流
+
+```
+RAW_DATA_DIR/                        （外部存储，在 .env 中配置）
+  {dataset}/wm.sav
+
+MICS-WM/data/WM/
+  raw/{dataset}/wm.yaml              列元数据
+  translate/{dataset}/wm.yaml        英文翻译后的标签
+  canonical/{dataset}/wm.yaml        标准变量分配结果
+  questionnaire_dedup_v2/{dataset}/  去重决策
+  alignment_v2.yaml                  跨数据集对齐字典
+  alignment_summary_v2.csv           汇总统计
+  processed_data/wm_merged.parquet   最终合并数据集
+
+PostgreSQL mda/
+  final_WM_MICS2MICS6                合并女性数据表
+  ind_que_WM_MICSMICS                变量索引表
+```
+
+---
