@@ -15,3 +15,6 @@ wheels/
 .env
 .DS_Store
 .claude/projects
+
+
+**.parquet
