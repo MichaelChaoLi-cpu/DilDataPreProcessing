@@ -4,8 +4,8 @@ MJ01: Pull and merge CH + WM data for child stunting analysis.
 Output: data/mj01_analysis.parquet
 
 Tables used:
-  final_CH_MICS2MICS6  (PostgreSQL, localhost:5432, db: mda)
-  final_WM_MICS2MICS6
+  final_CH_MICS  (PostgreSQL, localhost:5432, db: mda)
+  final_WM_MICS
 """
 from __future__ import annotations
 
@@ -41,7 +41,7 @@ SELECT
     -- survey metadata
     child_sample_weight,
     interview_year
-FROM "final_CH_MICS2MICS6"
+FROM "final_CH_MICS"
 WHERE height_for_age_zscore IS NOT NULL
   AND height_for_age_zscore BETWEEN -6 AND 6
 """
@@ -65,7 +65,7 @@ SELECT
     -- survey metadata
     women_sample_weight,
     interview_year          AS wm_interview_year
-FROM "final_WM_MICS2MICS6"
+FROM "final_WM_MICS"
 """
 
 
