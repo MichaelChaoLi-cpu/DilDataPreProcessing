@@ -11,7 +11,7 @@ Records post-hoc corrections to canonical variables. Each entry documents what c
 
 | ID | Date | Module | Variable(s) | DB | Parquet | Code |
 |----|------|--------|-------------|-----|---------|------|
-| P01 | 2026-06-29 | WM | `woman_age` → `woman_age` + `woman_age_group` | ✅ | ⚠️ partial | `MICS-WM/src/patch_woman_age.py` |
+| P01 | 2026-06-29 | WM | `woman_age` → `woman_age` + `woman_age_group` | ✅ | ✅ | `MICS-WM/src/patch_woman_age.py` |
 
 ---
 
@@ -47,15 +47,15 @@ Applied via SQL directly on `final_WM_MICS`:
 - `woman_age` set to NULL where value was 1–7 (no actual age available)
 - `ind_que_WM_MICS` updated: 532 WAGE-source rows renamed to `woman_age_group`; 9 derived rows inserted for WB2-source datasets
 
-### Parquet status: ⚠️ Partial
+### Parquet status: ✅ Done (2026-06-29)
 
-`wm_merged.parquet` was patched for the `woman_age` column (1-7 cleared to NaN) and `woman_age_group` added for the 83 WB2-source datasets. **The 184 WAGE-source datasets have `woman_age_group = NULL` in the parquet** because the merge pipeline discarded WAGE due to `duplicate_needs_review` in the dedup step.
+Full pipeline re-run with corrected `alignment_v2.yaml`:
+1. 248 WAGE/agegrp entries moved from `woman_age` → `woman_age_group` in yaml
+2. `merge_wm_to_parquet.py` re-run (251 datasets, 2,960,835 rows)
+3. `upload_wm_to_postgres.py` re-run
+4. Sentinel values (0, 8–10, 97, 99) in `woman_age_group` set to NULL (5,136 rows)
 
-**To fully fix the parquet**, the pipeline must be re-run with corrected alignment:
-1. In `alignment_v2.yaml`: remap `WAGE` → `woman_age_group`, keep `WB2` → `woman_age`
-2. Update affected `questionnaire_dedup_v2/<dataset>/dup.yaml` decisions
-3. Re-run `merge_wm_to_parquet.py`
-4. Re-run `upload_wm_to_postgres.py`
+Final coverage: `woman_age_group` non-null = 2,725,292 rows across **244 datasets** (92.2%)
 
 ### Code
 
