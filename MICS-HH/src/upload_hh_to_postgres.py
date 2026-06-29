@@ -2,8 +2,8 @@
 Upload HH data to PostgreSQL (localhost:5432, database: mda).
 
 Tables created (drop + recreate if they exist):
-  final_MICS2MICS6  -- merged household data from hh_merged.parquet
-  ind_que_MICSMICS  -- index of canonical variables with original SAV column
+  final_HH_MICS  -- merged household data from hh_merged.parquet
+  ind_que_HH_MICS  -- index of canonical variables with original SAV column
                        names and English labels, one row per dataset × variable
 
 Usage:
@@ -90,9 +90,9 @@ def upload_final(conn) -> None:
 
     # TEXT columns that hold numeric strings cause type confusion -- keep as-is.
     with conn.cursor() as cur:
-        _drop_and_create(cur, "final_MICS2MICS6", df)
+        _drop_and_create(cur, "final_HH_MICS", df)
         conn.commit()
-        _copy_upload(conn, cur, "final_MICS2MICS6", df)
+        _copy_upload(conn, cur, "final_HH_MICS", df)
 
 
 def _build_index(alignment: dict) -> pd.DataFrame:
@@ -122,9 +122,9 @@ def upload_index(conn) -> None:
     logger.info("Index built: %d rows", len(df))
 
     with conn.cursor() as cur:
-        _drop_and_create(cur, "ind_que_MICSMICS", df)
+        _drop_and_create(cur, "ind_que_HH_MICS", df)
         conn.commit()
-        _copy_upload(conn, cur, "ind_que_MICSMICS", df)
+        _copy_upload(conn, cur, "ind_que_HH_MICS", df)
 
 
 def main() -> None:

@@ -2,8 +2,8 @@
 Upload WM data to PostgreSQL (localhost:5432, database: mda).
 
 Tables created (drop + recreate if they exist):
-  final_WM_MICS2MICS6  -- merged women-level data from wm_merged.parquet
-  ind_que_WM_MICSMICS  -- index of canonical variables with original SAV column
+  final_WM_MICS  -- merged women-level data from wm_merged.parquet
+  ind_que_WM_MICS  -- index of canonical variables with original SAV column
                           names and English labels, one row per dataset × variable
 
 Usage:
@@ -87,9 +87,9 @@ def upload_final(conn) -> None:
     logger.info("Parquet loaded: %d rows x %d cols", len(df), len(df.columns))
 
     with conn.cursor() as cur:
-        _drop_and_create(cur, "final_WM_MICS2MICS6", df)
+        _drop_and_create(cur, "final_WM_MICS", df)
         conn.commit()
-        _copy_upload(conn, cur, "final_WM_MICS2MICS6", df)
+        _copy_upload(conn, cur, "final_WM_MICS", df)
 
 
 def _build_index(alignment: dict) -> pd.DataFrame:
@@ -119,9 +119,9 @@ def upload_index(conn) -> None:
     logger.info("Index built: %d rows", len(df))
 
     with conn.cursor() as cur:
-        _drop_and_create(cur, "ind_que_WM_MICSMICS", df)
+        _drop_and_create(cur, "ind_que_WM_MICS", df)
         conn.commit()
-        _copy_upload(conn, cur, "ind_que_WM_MICSMICS", df)
+        _copy_upload(conn, cur, "ind_que_WM_MICS", df)
 
 
 def main() -> None:
