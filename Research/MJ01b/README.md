@@ -119,14 +119,14 @@ df = df[df["fever_last_2_weeks"].isin([1, 2])]  # 最大值=100，sentinel 未�
 
 ### 注5 — diarrhea 跨轮次编码差异
 
-MICS2 时代数据集（31 个，按 dataset_name 正则识别）使用 0=No/1=Yes；其余数据集使用 1=Yes/2=No。`pull_data.py` 已统一转换为 0/1。
+MICS2 时代数据集（31 个，按 dataset_name 正则识别）使用 0=No/1=Yes；其余数据集使用 1=Yes/2=No。`src/preprocessing/pull_data.py` 已统一转换为 0/1。
 
 ## 复现
 
 ```bash
 cd /Users/lichao/Development/DilDataPreProcessing
 source MasterDataAlignmentWithMike/.venv/bin/activate
-python Research/MJ01b/pull_data.py
+python Research/MJ01b/src/preprocessing/pull_data.py
 # 输出: Research/MJ01b/data/mj01b_analysis.parquet
 ```
 
