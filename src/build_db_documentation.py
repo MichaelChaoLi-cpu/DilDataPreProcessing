@@ -120,6 +120,26 @@ HH: sex_of_household_head (1/2, cleaned)
 Full change history: _data_issues (status='fixed', patch_id P01-P10) and
 DATA_PATCH_LOG.md in the DilDataPreProcessing repository."""),
 
+    ("cp_prefix", """\
+# CP_ = carefully processed (naming convention, P11)
+
+Any column whose NAME starts with CP_ is the "carefully processed" version of
+a variable: its values are the deliberate product of a post-hoc patch
+(cleaning, splitting, harmonization, derivation, or backfill) rather than a
+coarse rename of the raw SPSS column. For cross-dataset analysis, PREFER the
+CP_ columns.
+
+Each CP_ column is a duplicate: the original un-prefixed column is retained
+unchanged so earlier projects remain reproducible. The two hold identical
+values today; they diverge only if a future patch revises the CP_ version.
+
+Retrofitted (P11) for every column touched by P01-P10, e.g.
+CP_woman_age, CP_education_level_harmonized, CP_education_years,
+CP_mother_education_harmonized, CP_child_age_years, CP_sex_of_household_head.
+Provenance rows in ind_que_* are mirrored under the CP_ name.
+
+Rule going forward: a variable created or altered by a patch gets a CP_ name."""),
+
     ("issue_reporting", """\
 # Reporting data problems
 
@@ -255,6 +275,41 @@ CURATED: dict[tuple[str, str], str] = {
     # HH
     ("final_HH_MICS", "sex_of_household_head"): "1 = male, 2 = female, NULL = unknown. Verified & cleaned across all datasets. (P10)",
 }
+
+# ---------------------------------------------------------------------------
+# CP_ ("carefully processed") columns — P11.
+# Every variable a patch (P01-P10) cleaned/split/harmonized/derived/backfilled
+# has a CP_<name> duplicate; the original is retained for backward compat.
+# Comments for CP_ columns are auto-generated from the base column's comment so
+# the two stay in sync. Going forward, new post-processed variables should be
+# created with a CP_ prefix directly and listed here.
+# ---------------------------------------------------------------------------
+
+CP_COLUMNS: dict[str, list[str]] = {
+    "final_WM_MICS": [
+        "woman_age", "woman_age_group", "education_level_harmonized",
+        "media_tv_frequency_harmonized", "media_radio_frequency_harmonized",
+        "media_newspaper_frequency_harmonized", "education_grade",
+        "education_grade_completed", "education_years", "education_years_estimated",
+    ],
+    "final_HL_MICS": [
+        "highest_grade_completed", "ever_completed_grade",
+        "education_years", "education_years_estimated",
+    ],
+    "final_CH_MICS": [
+        "mother_education_harmonized", "child_age_months", "child_age_years",
+        "mother_education_years", "mother_education_years_estimated",
+    ],
+    "final_HH_MICS": ["sex_of_household_head"],
+}
+
+for _tbl, _cols in CP_COLUMNS.items():
+    for _c in _cols:
+        _base = CURATED.get((_tbl, _c), "")
+        CURATED[(_tbl, "CP_" + _c)] = (
+            f"CP (carefully processed) copy of {_c}"
+            + (f" — {_base}" if _base else "") + " (P11)"
+        )
 
 TABLE_COMMENTS = {
     "final_WM_MICS": "MICS women 15-49, all datasets pooled. Keys: dataset_name+cluster_number+hh_number(+line_number). See _catalog/_guide.",

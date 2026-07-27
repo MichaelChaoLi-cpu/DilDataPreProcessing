@@ -38,12 +38,19 @@ tables (cast to float); keys unique only within `dataset_name`.
 `woman_age_group`, `sex_of_household_head`. Raw variables keep country-specific
 codes and sentinel values (97/98/99 etc.) — harmonized ones have sentinels nulled.
 
+**`CP_` = carefully processed** (P11). Every column a patch cleaned/split/
+harmonized/derived/backfilled has a `CP_<name>` duplicate — the name itself
+signals the values are post-processed, not a coarse rename of the raw SPSS
+column. Prefer `CP_` columns for cross-dataset work. Originals are kept
+unchanged for backward compatibility (identical values today; they diverge only
+if a later patch revises the `CP_` copy).
+
 ## Repo layout
 
 - `MICS-{WM,HH,HL,CH}/` — per-module pipeline: `src/` (extract → align → merge →
   upload + patch scripts), `data/<MOD>/raw/` (yaml metadata), `processed_data/*.parquet`
   (source of truth, DB is rebuilt from these)
-- `DATA_PATCH_LOG.md` — full history of data corrections (P01–P10); every patch
+- `DATA_PATCH_LOG.md` — full history of data corrections (P01–P11); every patch
   keeps DB and parquet in sync. Mirrored in `_data_issues` in the DB.
 - `Research/` — analysis projects (reference only, e.g. MJ01b WASH study)
 - `src/build_db_documentation.py` — rebuilds `_guide`/`_catalog` + column comments
@@ -57,6 +64,9 @@ codes and sentinel values (97/98/99 etc.) — harmonized ones have sentinels nul
 - Data corrections follow the patch pattern: numbered Pnn, scan script + patch
   script, parquet AND DB both updated, entry appended to `DATA_PATCH_LOG.md`,
   resolution recorded in `_data_issues`.
+- Any variable a patch creates or alters MUST get a `CP_` (carefully processed)
+  name — list it in `CP_COLUMNS` in `build_db_documentation.py` so it is
+  commented on rebuild. Retrofit pattern: `src/patch_cp_prefix.py`.
 - DB re-uploads rebuild `ind_que_*` from `alignment_v2.yaml` — snapshot and
   re-insert patch-derived rows (see `sync_p09_to_db.py` for the pattern).
 - Before fixing anything reported in `_data_issues`, mark it `confirmed`; after
