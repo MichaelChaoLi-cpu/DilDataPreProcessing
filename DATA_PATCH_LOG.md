@@ -24,6 +24,7 @@ Records post-hoc corrections to canonical variables. Each entry documents what c
 | P11 | 2026-07-27 | WM+HL+CH+HH | `CP_` naming convention: duplicate every P01-P10 column as `CP_<name>` (carefully processed) | ✅ | ✅ | `src/patch_cp_prefix.py` |
 | P12 | 2026-07-28 | WM | `CP_age_at_first_union` (valid 8-49) + Mozambique 2008 recovered from raw `AGEM` | ✅ | ✅ | `MICS-WM/src/patch_age_first_union.py`, `scan_age_first_union.py` |
 | P13 | 2026-07-28 | WM | `CP_children_ever_born` (valid 0-20) + 9 datasets recovered from raw CEB columns | ✅ | ✅ | `MICS-WM/src/patch_children_ever_born.py`, `scan_children_ever_born.py` |
+| P14 | 2026-07-28 | CH | `CP_bmi_for_age_zscore` (clean-only: bmi_flag=0 & z in [-5,5]) | ✅ | ✅ | `MICS-CH/src/patch_bmi_for_age.py` |
 
 ---
 
@@ -557,3 +558,53 @@ Snapshot `wm_merged.parquet.bak_p13`.
 - `patch_yaml()` — adds recovered mappings
 - `patch_db()` — CP_ column + clean UPDATE + per-dataset delete/re-insert + ind_que
 - `--verify`
+
+---
+
+## P14 — `CP_bmi_for_age_zscore` (clean-only)
+
+**Module:** CH (`final_CH_MICS`, `ind_que_CH_MICS`, `ch_merged.parquet`)
+
+### Problem
+
+`bmi_for_age_zscore` (WHO BMI-for-age z) ranged −15.57 to 999.99: `999.99` is a
+sentinel and there are biologically-implausible extremes. MICS already flags
+these in `bmi_flag` (0 = plausible 965,716; 1 = implausible 59,623; NULL = not
+computed 658,864). Coverage is 61.4% (145 datasets) — ~14pp below the sibling
+WHO z-scores (weight/height-for-age ~76%), because MICS does not routinely
+pre-compute BMI-for-age for under-5.
+
+### Decision
+
+**Clean-only** this round. A derivation to raise coverage (compute BMI-for-age z
+from raw `child_weight_kg` / `child_height_or_length_cm` / age / `sex_of_child`
+via the WHO 2006 standards — ~269k of the 650k missing rows are derivable →
+~77% coverage) was scoped out; it needs a bundled WHO LMS reference and age
+reconstruction (`child_age_days` 51%, or from birth/interview dates). Note: for
+under-5 WHO prefers `weight_for_height_zscore` (75.8%); BMI-for-age is a 5–19y
+indicator.
+
+### Fix
+
+`CP_bmi_for_age_zscore` = `bmi_for_age_zscore` where `bmi_flag = 0` AND z in
+[−5, 5]; else NULL. Sentinel 999.99 (226 rows) and flagged/implausible values
+dropped. Raw column unchanged.
+
+### Result
+
+- `CP_bmi_for_age_zscore` valid: **960,345** rows across **145** datasets
+  (~57% of CH). No out-of-range values in the CP_ column.
+
+### DB status: ✅ Done (2026-07-28)
+
+`CP_bmi_for_age_zscore` added; whole-table clean UPDATE; `ind_que_CH_MICS`
+mirrored `CP_` provenance rows. Comments + `_data_issues` P14 via
+`build_db_documentation.py`.
+
+### Parquet status: ✅ Done (2026-07-28)
+
+Snapshot `ch_merged.parquet.bak_p14`.
+
+### Code
+
+`MICS-CH/src/patch_bmi_for_age.py` — `patch_parquet()` + `patch_db()` + `--verify`.
