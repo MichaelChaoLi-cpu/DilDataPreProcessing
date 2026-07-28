@@ -22,6 +22,7 @@ Records post-hoc corrections to canonical variables. Each entry documents what c
 | P09 | 2026-07-11 | WM+HL+CH | `education_years`/`education_years_estimated` (WM, HL), `mother_education_years`/`mother_education_years_estimated` (CH) | ✅ | ✅ | `MICS-WM/src/scan_education_level_fine.py`, `build_school_duration_table.py`, `patch_education_years.py`, `sync_p09_to_db.py` |
 | P10 | 2026-07-14 | HH | `sex_of_household_head` cleanup (coding verified, wrong source fixed, HL backfill) | ✅ | ✅ | `MICS-HH/src/patch_sex_of_household_head.py` |
 | P11 | 2026-07-27 | WM+HL+CH+HH | `CP_` naming convention: duplicate every P01-P10 column as `CP_<name>` (carefully processed) | ✅ | ✅ | `src/patch_cp_prefix.py` |
+| P12 | 2026-07-28 | WM | `CP_age_at_first_union` (valid 8-49) + Mozambique 2008 recovered from raw `AGEM` | ✅ | ✅ | `MICS-WM/src/patch_age_first_union.py`, `scan_age_first_union.py` |
 
 ---
 
@@ -403,3 +404,71 @@ snapshots kept as `*.parquet.bak_p11`.
 - `patch_db()` — idempotent; adds `CP_` columns + copies values + mirrors
   `ind_que_*` provenance rows
 - `--verify` flag re-checks CP_ presence and value equality without writing
+
+---
+
+## P12 — `CP_age_at_first_union` (careful clean) + Mozambique 2008 recovery
+
+**Module:** WM (`final_WM_MICS`, `ind_que_WM_MICS`, `wm_merged.parquet`, `alignment_v2.yaml`)
+
+### Problem
+
+`age_at_first_union` mixed valid ages with sentinel codes (97/98/99), zeros,
+negatives and implausibly low values (1–7). Separately, 41 datasets had **zero**
+coverage. (An apparent "70% of values exceed the woman's own age" was a false
+alarm — an artifact of `woman_age` being stored as 5-year group codes 1–7 in
+many datasets; compared against real ages, the impossible rate is ~0%.)
+
+### Investigation (scan, no changes): `scan_age_first_union.py`
+
+- **Cross-module backfill is impossible** — marriage history (`age_at_first_union`,
+  `ever/currently_married`, `date_marriage_cmc`, `first_union_year/month`,
+  `times_married`) is collected **only in the women's questionnaire**. HL/HH/CH
+  have none of it.
+- Of the 41 fully-missing datasets, **0** have any alternative in-DB source
+  (`date_marriage_cmc` / `first_union_year` / `ever_married`).
+- Raw-SAV rescan of all 41: only **Mozambique MICS 2008** has an unmapped
+  age-at-first-union column (`AGEM` "Idade na 1a união/casamento", and `MA8`).
+  The other 40 (mostly MICS2, 2000) never collected it.
+
+### Fix
+
+1. **`CP_age_at_first_union`** — carefully-processed copy keeping only plausible
+   ages **8–49**; sentinels, 0, negatives, <8 and >49 → NULL. Ages 8–9 are kept
+   (they concentrate in known child-marriage countries — Ghana, Bangladesh,
+   Nigeria, Afghanistan, Sierra Leone, CAR — and are genuine). The raw
+   `age_at_first_union` is left unchanged (cleaning lives only in the CP_ copy).
+   NULL also legitimately marks never-married women.
+
+2. **Mozambique 2008 recovery** — mapped raw `AGEM` → `age_at_first_union`.
+   Parquet keys there are broken (cluster_number/line_number all NULL, per P10),
+   so rows were aligned **positionally** to the SAV, guarded by a check that
+   `hh_number == HH2` for all 15,060 rows (verified 100%). Added to
+   `alignment_v2.yaml` (backup `.bak_p12`) so a full rebuild reproduces it.
+   14,188 raw values added; ~11,537 survive the 8–49 clean into CP_.
+
+### Result
+
+- `CP_age_at_first_union` valid (8–49): **~1.78M** values across **211** datasets
+  (was 210). No out-of-range values remain in the CP_ column.
+
+### DB status: ✅ Done (2026-07-28)
+
+`CP_age_at_first_union` added; whole-table clean UPDATE; Mozambique rows
+delete + re-inserted from patched parquet (broken keys preclude keyed UPDATE);
+`ind_que_WM_MICS` gained the Mozambique `AGEM` row and mirrored `CP_` provenance
+rows. Column comments + `_data_issues` P12 recorded via `build_db_documentation.py`.
+
+### Parquet status: ✅ Done (2026-07-28)
+
+`age_at_first_union` Mozambique-filled; `CP_age_at_first_union` added.
+Pre-patch snapshot `wm_merged.parquet.bak_p12`.
+
+### Code
+
+`MICS-WM/src/scan_age_first_union.py` — gap scan (report only)
+`MICS-WM/src/patch_age_first_union.py`
+- `patch_yaml()` — adds Mozambique `AGEM` mapping
+- `patch_parquet()` — guarded positional Mozambique backfill + CP_ clean copy
+- `patch_db()` — CP_ column + clean UPDATE + Mozambique delete/re-insert + ind_que
+- `--verify` — checks coverage, range, and parquet/DB consistency

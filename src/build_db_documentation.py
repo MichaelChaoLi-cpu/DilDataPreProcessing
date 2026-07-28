@@ -110,7 +110,8 @@ These are safe to compare across countries; raw variables often are not.
 WM: woman_age (15-49), woman_age_group (1-7 = 5yr bands),
     education_level_harmonized (0 none /1 primary /2 secondary /3 higher),
     media_tv/radio/newspaper_frequency_harmonized (0 never /1 <weekly
-    /2 >=weekly /3 ~daily), education_years (+_estimated)
+    /2 >=weekly /3 ~daily), education_years (+_estimated),
+    CP_age_at_first_union (cleaned, valid 8-49; NULL=never-married)
 HL: education_years (+_estimated)
 CH: child_age_years (0-4), child_age_months (0-59, only ~42 month-coded
     datasets), mother_education_harmonized (0-3 as above),
@@ -239,6 +240,13 @@ HISTORY = [
      "sentinel codes 3/7/9 present.",
      "Coding verified 1=male/2=female across all 247 datasets; wrong source nulled; "
      "38,236 rows backfilled from HL roster with strict key matching; domain now {1,2,NULL}."),
+    ("P12", "final_WM_MICS", "CP_age_at_first_union",
+     "age_at_first_union carried sentinels (97/98/99), zeros, negatives and "
+     "implausible ages; 41 datasets had zero coverage.",
+     "Added CP_age_at_first_union (valid 8-49 only); recovered Mozambique 2008 "
+     "from unmapped raw AGEM via positional alignment (guarded). Cross-module "
+     "backfill impossible (marriage data is WM-only); other 40 datasets never "
+     "collected it. ~1.78M valid values across 211 datasets."),
 ]
 
 # ---------------------------------------------------------------------------
@@ -258,6 +266,8 @@ CURATED: dict[tuple[str, str], str] = {
     ("final_WM_MICS", "education_grade_completed"): "Completed that grade? 1 yes, 2 no. (P08)",
     ("final_WM_MICS", "education_years"): "Years of schooling, 0-25, cross-dataset comparable. Built from level+grade+WB durations. (P09)",
     ("final_WM_MICS", "education_years_estimated"): "1 = education_years is a level-midpoint estimate (grade missing); 0 = exact. (P09)",
+    ("final_WM_MICS", "age_at_first_union"): "Woman's age at first marriage/union, RAW: keeps sentinels (97/98/99), 0 and implausible values. Use CP_age_at_first_union. NULL for never-married women. (P12 added Mozambique 2008)",
+    ("final_WM_MICS", "CP_age_at_first_union"): "Age at first marriage/union, cleaned: valid range 8-49 only (sentinels/0/neg/<8/>49 nulled). NULL also = never-married. 211 datasets. (P12)",
     # HL
     ("final_HL_MICS", "relationship_to_head"): "Relationship to household head; 1 = head. Head is roster line 1 by MICS design.",
     ("final_HL_MICS", "sex"): "1 = male, 2 = female.",
@@ -291,6 +301,7 @@ CP_COLUMNS: dict[str, list[str]] = {
         "media_tv_frequency_harmonized", "media_radio_frequency_harmonized",
         "media_newspaper_frequency_harmonized", "education_grade",
         "education_grade_completed", "education_years", "education_years_estimated",
+        "age_at_first_union",
     ],
     "final_HL_MICS": [
         "highest_grade_completed", "ever_completed_grade",
@@ -303,13 +314,15 @@ CP_COLUMNS: dict[str, list[str]] = {
     "final_HH_MICS": ["sex_of_household_head"],
 }
 
+# Auto-generate a CP_ comment from each base column's comment, UNLESS an explicit
+# CP_ entry already exists in CURATED (e.g. CP_age_at_first_union, curated for P12).
 for _tbl, _cols in CP_COLUMNS.items():
     for _c in _cols:
         _base = CURATED.get((_tbl, _c), "")
-        CURATED[(_tbl, "CP_" + _c)] = (
+        CURATED.setdefault((_tbl, "CP_" + _c), (
             f"CP (carefully processed) copy of {_c}"
             + (f" — {_base}" if _base else "") + " (P11)"
-        )
+        ))
 
 TABLE_COMMENTS = {
     "final_WM_MICS": "MICS women 15-49, all datasets pooled. Keys: dataset_name+cluster_number+hh_number(+line_number). See _catalog/_guide.",
