@@ -111,7 +111,8 @@ WM: woman_age (15-49), woman_age_group (1-7 = 5yr bands),
     education_level_harmonized (0 none /1 primary /2 secondary /3 higher),
     media_tv/radio/newspaper_frequency_harmonized (0 never /1 <weekly
     /2 >=weekly /3 ~daily), education_years (+_estimated),
-    CP_age_at_first_union (cleaned, valid 8-49; NULL=never-married)
+    CP_age_at_first_union (cleaned, valid 8-49; NULL=never-married),
+    CP_children_ever_born (cleaned, valid 0-20)
 HL: education_years (+_estimated)
 CH: child_age_years (0-4), child_age_months (0-59, only ~42 month-coded
     datasets), mother_education_harmonized (0-3 as above),
@@ -247,6 +248,13 @@ HISTORY = [
      "from unmapped raw AGEM via positional alignment (guarded). Cross-module "
      "backfill impossible (marriage data is WM-only); other 40 datasets never "
      "collected it. ~1.78M valid values across 211 datasets."),
+    ("P13", "final_WM_MICS", "CP_children_ever_born",
+     "children_ever_born carried sentinel 99 and rare implausibly-high values; "
+     "39 datasets had zero coverage.",
+     "Added CP_children_ever_born (valid 0-20 only). Recovered 9 datasets from "
+     "unmapped raw CEB columns via guarded positional alignment (Kyrgyzstan "
+     "2005-06 skipped: hh_number!=HH2). Component derivation rejected (~16% "
+     "exact). ~2.43M valid values across 221 datasets."),
 ]
 
 # ---------------------------------------------------------------------------
@@ -268,6 +276,8 @@ CURATED: dict[tuple[str, str], str] = {
     ("final_WM_MICS", "education_years_estimated"): "1 = education_years is a level-midpoint estimate (grade missing); 0 = exact. (P09)",
     ("final_WM_MICS", "age_at_first_union"): "Woman's age at first marriage/union, RAW: keeps sentinels (97/98/99), 0 and implausible values. Use CP_age_at_first_union. NULL for never-married women. (P12 added Mozambique 2008)",
     ("final_WM_MICS", "CP_age_at_first_union"): "Age at first marriage/union, cleaned: valid range 8-49 only (sentinels/0/neg/<8/>49 nulled). NULL also = never-married. 211 datasets. (P12)",
+    ("final_WM_MICS", "children_ever_born"): "Total children ever born to the woman, RAW: keeps sentinel 99 and rare implausibly-high values; some cross-var inconsistencies (vs children_dead/ever_given_birth) untouched. Use CP_children_ever_born. (P13 backfilled 10 datasets)",
+    ("final_WM_MICS", "CP_children_ever_born"): "Children ever born, cleaned: valid 0-20 only (99/>20 nulled). ~223 datasets. Cross-variable inconsistencies intentionally kept. (P13)",
     # HL
     ("final_HL_MICS", "relationship_to_head"): "Relationship to household head; 1 = head. Head is roster line 1 by MICS design.",
     ("final_HL_MICS", "sex"): "1 = male, 2 = female.",
@@ -301,7 +311,7 @@ CP_COLUMNS: dict[str, list[str]] = {
         "media_tv_frequency_harmonized", "media_radio_frequency_harmonized",
         "media_newspaper_frequency_harmonized", "education_grade",
         "education_grade_completed", "education_years", "education_years_estimated",
-        "age_at_first_union",
+        "age_at_first_union", "children_ever_born",
     ],
     "final_HL_MICS": [
         "highest_grade_completed", "ever_completed_grade",

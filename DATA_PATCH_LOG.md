@@ -23,6 +23,7 @@ Records post-hoc corrections to canonical variables. Each entry documents what c
 | P10 | 2026-07-14 | HH | `sex_of_household_head` cleanup (coding verified, wrong source fixed, HL backfill) | ✅ | ✅ | `MICS-HH/src/patch_sex_of_household_head.py` |
 | P11 | 2026-07-27 | WM+HL+CH+HH | `CP_` naming convention: duplicate every P01-P10 column as `CP_<name>` (carefully processed) | ✅ | ✅ | `src/patch_cp_prefix.py` |
 | P12 | 2026-07-28 | WM | `CP_age_at_first_union` (valid 8-49) + Mozambique 2008 recovered from raw `AGEM` | ✅ | ✅ | `MICS-WM/src/patch_age_first_union.py`, `scan_age_first_union.py` |
+| P13 | 2026-07-28 | WM | `CP_children_ever_born` (valid 0-20) + 9 datasets recovered from raw CEB columns | ✅ | ✅ | `MICS-WM/src/patch_children_ever_born.py`, `scan_children_ever_born.py` |
 
 ---
 
@@ -472,3 +473,87 @@ Pre-patch snapshot `wm_merged.parquet.bak_p12`.
 - `patch_parquet()` — guarded positional Mozambique backfill + CP_ clean copy
 - `patch_db()` — CP_ column + clean UPDATE + Mozambique delete/re-insert + ind_que
 - `--verify` — checks coverage, range, and parquet/DB consistency
+
+---
+
+## P13 — `CP_children_ever_born` (careful clean) + 9-dataset recovery
+
+**Module:** WM (`final_WM_MICS`, `ind_que_WM_MICS`, `wm_merged.parquet`, `alignment_v2.yaml`)
+
+### Problem
+
+`children_ever_born` (CEB) was already very clean (median 2, p99 10, no
+negatives) but carried sentinel 99 (2 rows) and rare implausibly-high values
+(21–30, 6 rows). Separately, 39 datasets had zero coverage. Minor cross-variable
+inconsistencies exist (5,343 rows CEB < children_dead; 3,452 CEB≥1 with
+ever_given_birth=no; 391 CEB > age−12) — these are **intentionally left as-is**
+(not clearly CEB's fault).
+
+### Investigation (scan, no changes): `scan_children_ever_born.py`
+
+- **Cross-module backfill impossible** — CEB is a women's-questionnaire total.
+- **Component derivation rejected** — sum of the six sons/daughters columns
+  (living_with / living_elsewhere / dead) matches CEB only ~16% exactly
+  (41% within ±1), even after sentinel-cleaning; too unreliable to use.
+- Raw-SAV rescan of the 39: **13** have a candidate CEB column (label-first
+  match; names CM8–CM20/CEB/CTOT vary by round). Distribution check kept the
+  real ones (mean 1.8–4.4) and dropped empties.
+
+### Fix
+
+1. **`CP_children_ever_born`** — carefully-processed copy keeping counts **0–20**;
+   sentinel 99 and >20 → NULL. Cross-variable inconsistencies untouched. Raw
+   `children_ever_born` left unchanged except the additive backfill.
+
+2. **Recovery of 9 datasets** from a validated raw CEB column, aligned
+   POSITIONALLY to the SAV, guarded by `hh_number == HH2` (100% required):
+
+   | Dataset | Raw col | Rows filled |
+   |---------|---------|-------------|
+   | Benin MICS5 | `CEB` | 15,815 |
+   | Mauritania MICS5 | `CEB` | 14,342 |
+   | Mauritania MICS5 (dup "2") | `CEB` | 14,342 |
+   | Mauritania MICS4 | `CEB` | 12,754 |
+   | Mauritania 2007 | `ceb` | 12,535 |
+   | Mexico MICS5 | `CEB` | 12,110 |
+   | Cameroon MICS5 | `CEB` | 9,861 |
+   | Senegal (Dakar) MICS5 | `CEB` | 9,404 |
+   | Burundi 2005 | `CM9` | 5,819 |
+
+   Mappings added to `alignment_v2.yaml` (backup `.bak_p13`).
+
+### Not recovered
+
+- **Kyrgyzstan 2005-06** — candidate `ceb` exists but the positional guard
+  failed (`hh_number != HH2`, 0% match — broken/reordered keys); skipped to
+  avoid wrong-row assignment. Stays NULL.
+- **Barbados MICS4** — `CEB` column present but 100% empty in the SAV (explains
+  its "mapped but all-NULL" state).
+- **Dominican Republic MICS5** — only an empty `CTOT` check column found.
+- **Cameroon 2000** — SAV not at the expected path.
+- Remaining 26 of 39 — no CEB column collected.
+
+### Result
+
+- `CP_children_ever_born` valid (0–20): **~2.43M** values across **221** datasets
+  (was 212). No out-of-range values in the CP_ column.
+
+### DB status: ✅ Done (2026-07-28)
+
+`CP_children_ever_born` added; whole-table clean UPDATE; the 9 recovered datasets
+delete + re-inserted from patched parquet (uniform, robust to broken keys);
+`ind_que_WM_MICS` gained 9 base CEB rows + mirrored `CP_` provenance rows.
+Comments + `_data_issues` P13 via `build_db_documentation.py`.
+
+### Parquet status: ✅ Done (2026-07-28)
+
+Snapshot `wm_merged.parquet.bak_p13`.
+
+### Code
+
+`MICS-WM/src/scan_children_ever_born.py` — gap scan (report only)
+`MICS-WM/src/patch_children_ever_born.py`
+- `patch_parquet()` — guarded positional backfill (per dataset) + CP_ clean copy
+- `patch_yaml()` — adds recovered mappings
+- `patch_db()` — CP_ column + clean UPDATE + per-dataset delete/re-insert + ind_que
+- `--verify`
