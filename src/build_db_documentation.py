@@ -118,7 +118,8 @@ CH: child_age_years (0-4), child_age_months (0-59, only ~42 month-coded
     datasets), mother_education_harmonized (0-3 as above),
     mother_education_years (+_estimated),
     CP_bmi_for_age_zscore (cleaned |z|<=6 + WHO-2006 derived where missing;
-    see CP_bmi_for_age_zscore_derived; WHO prefers WHZ for <5y)
+    see CP_bmi_for_age_zscore_derived; WHO prefers WHZ for <5y),
+    CP_diarrhea_last_2_weeks (harmonized 1=Yes/0=No; per-dataset label mapping)
 HH: sex_of_household_head (1/2, cleaned)
 
 Full change history: _data_issues (status='fixed', patch_id P01-P10) and
@@ -266,6 +267,13 @@ HISTORY = [
      "error-prone datasets excluded (SD>1.8). CP_bmi_for_age_zscore_derived "
      "flags derived rows. ~1.17M rows / 178 datasets / 106 countries "
      "(+187k derived / +12 countries)."),
+    ("P15", "final_CH_MICS", "CP_diarrhea_last_2_weeks",
+     "diarrhea_last_2_weeks coding varies across datasets (1/2, 0/1, 0/100; "
+     "Iraq/Yemen 2=yes-without-blood); Congo_MICS5 mis-mapped to CA2 (fluid "
+     "intake) not CA1.",
+     "Added CP_diarrhea_last_2_weeks (1=Yes/0=No/NULL) via per-dataset "
+     "label-driven mapping; {0,100} decoded 100=Yes (prevalence+downstream "
+     "evidence); Congo_MICS5 source fixed CA2->CA1 and recovered (guarded)."),
 ]
 
 # ---------------------------------------------------------------------------
@@ -305,6 +313,8 @@ CURATED: dict[tuple[str, str], str] = {
     ("final_CH_MICS", "bmi_for_age_zscore"): "BMI-for-age z-score (WHO), RAW/MICS-provided: keeps sentinel 999.99 and implausible values. Use CP_bmi_for_age_zscore. NB WHO prefers weight_for_height_zscore for under-5. (P14)",
     ("final_CH_MICS", "CP_bmi_for_age_zscore"): "BMI-for-age z-score, cleaned to |z|<=6, PLUS derived (WHO 2006 from weight/height/age/sex) for 33 fully-missing datasets that passed a data-quality gate. ~1.17M rows / 178 datasets. See CP_bmi_for_age_zscore_derived. (P14)",
     ("final_CH_MICS", "CP_bmi_for_age_zscore_derived"): "1 = CP_bmi_for_age_zscore was derived here (WHO 2006), 0 = MICS-provided, NULL = CP_ is NULL. ~187k derived. (P14)",
+    ("final_CH_MICS", "diarrhea_last_2_weeks"): "Had diarrhoea in last 2 weeks, RAW: coding varies across datasets (1/2, 0/1, 0/100, Iraq/Yemen 2=yes-without-blood). Use CP_diarrhea_last_2_weeks. (P15 fixed Congo_MICS5 source CA2->CA1)",
+    ("final_CH_MICS", "CP_diarrhea_last_2_weeks"): "Diarrhoea in last 2 weeks, harmonized: 1=Yes, 0=No, NULL=DK/missing/unknown. Per-dataset label-driven mapping (handles 2=yes-without-blood, 0/100). (P15)",
     ("final_CH_MICS", "mother_caretaker_line_number"): "Roster line of mother/caretaker; join to WM.line_number or HL.line_number.",
     # HH
     ("final_HH_MICS", "sex_of_household_head"): "1 = male, 2 = female, NULL = unknown. Verified & cleaned across all datasets. (P10)",
@@ -334,7 +344,7 @@ CP_COLUMNS: dict[str, list[str]] = {
     "final_CH_MICS": [
         "mother_education_harmonized", "child_age_months", "child_age_years",
         "mother_education_years", "mother_education_years_estimated",
-        "bmi_for_age_zscore",
+        "bmi_for_age_zscore", "diarrhea_last_2_weeks",
     ],
     "final_HH_MICS": ["sex_of_household_head"],
 }

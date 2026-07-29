@@ -24,7 +24,8 @@ Records post-hoc corrections to canonical variables. Each entry documents what c
 | P11 | 2026-07-27 | WM+HL+CH+HH | `CP_` naming convention: duplicate every P01-P10 column as `CP_<name>` (carefully processed) | ✅ | ✅ | `src/patch_cp_prefix.py` |
 | P12 | 2026-07-28 | WM | `CP_age_at_first_union` (valid 8-49) + Mozambique 2008 recovered from raw `AGEM` | ✅ | ✅ | `MICS-WM/src/patch_age_first_union.py`, `scan_age_first_union.py` |
 | P13 | 2026-07-28 | WM | `CP_children_ever_born` (valid 0-20) + 9 datasets recovered from raw CEB columns | ✅ | ✅ | `MICS-WM/src/patch_children_ever_born.py`, `scan_children_ever_born.py` |
-| P14 | 2026-07-28 | CH | `CP_bmi_for_age_zscore` (clean-only: bmi_flag=0 & z in [-5,5]) | ✅ | ✅ | `MICS-CH/src/patch_bmi_for_age.py` |
+| P14 | 2026-07-28 | CH | `CP_bmi_for_age_zscore` (clean \|z\|≤6 + WHO-2006 derivation, 33 datasets) | ✅ | ✅ | `MICS-CH/src/patch_bmi_for_age.py` |
+| P15 | 2026-07-29 | CH | `CP_diarrhea_last_2_weeks` (per-dataset label harmonization 1=Yes/0=No) + Congo_MICS5 source fix CA2→CA1 | ✅ | ✅ | `MICS-CH/src/patch_diarrhea.py` |
 
 ---
 
@@ -624,3 +625,69 @@ Snapshot `ch_merged.parquet.bak_p14` (pre-P14).
 `MICS-CH/src/patch_bmi_for_age.py` — embedded WHO 2006 BMI-for-age LMS,
 `_zscore()`, in-code data-quality gate, `patch_parquet()` + `patch_db()` +
 `--verify`.
+
+---
+
+## P15 — `CP_diarrhea_last_2_weeks` (per-dataset label harmonization) + Congo source fix
+
+**Module:** CH (`final_CH_MICS`, `ind_que_CH_MICS`, `ch_merged.parquet`, `alignment_v2.yaml`)
+
+### Problem
+
+`diarrhea_last_2_weeks` (yes/no) uses **inconsistent coding across datasets**, so
+a global 1→Yes/2→No is unsafe:
+
+- 214 datasets: standard `1=Yes, 2=No` (+ sentinels 7/8/9).
+- **Iraq 2006 & Yemen 2006**: `1=Yes, 2=Yes-without-blood, 3=No` — here **2 is
+  YES**; a global "2=No" would flip them.
+- 7 datasets (DR Congo 2001, Dominican Rep 2000, Guinea Bissau 2000, Indonesia
+  MICS2, Madagascar 2000, Niger 2000, Venezuela 2000): unlabeled, values
+  `{0,100}`.
+- **Congo_MICS5**: `diarrhea_last_2_weeks` was MIS-MAPPED to `CA2` ("fluid intake
+  during diarrhea", 1=much less…5=nothing), not the real question `CA1` ("had
+  diarrhoea in last 2 weeks", 1=Oui/2=Non).
+
+### Investigation
+
+- `{0,100}` decoded as **100=Yes, 0=No**: downstream diarrhea-care vars filled
+  24% for =100 vs 3% for =0; implied 2-week prevalence 6–36% (plausible). If 0
+  were Yes, prevalence would be 78–94% (absurd).
+- Congo_MICS5 raw `ch.yaml` **does** contain `CA1` (1=Oui, 2=Non, 8=NSP,
+  9=Non Déclarée) — the data existed, only the alignment was wrong. Only this
+  one dataset is mis-mapped (full-scan of all datasets' value labels).
+
+### Fix
+
+- **Per-dataset, label-driven mapping**: a code whose value-label reads Yes
+  (incl. "yes without blood") → 1; No → 0; DK/missing/unlabeled/other → NULL.
+  Unlabeled datasets fall back to `{1:1, 2:0, 100:1, 0:0}`. Target: **1=Yes,
+  0=No, NULL=DK/missing/unknown**. This auto-handles the Iraq/Yemen flip and
+  ignores non-yes/no labels.
+- **Congo_MICS5 source fix**: `alignment_v2.yaml` remapped `CA2→CA1` (backup
+  `.bak_p15`); base recovered from raw `CA1` (positional, guarded
+  `household_number == HH2` = 100% over 9,271 rows), then mapped normally
+  (1=Oui→1, 2=Non→0). Congo diarrhea now 1,643 Yes / 7,514 No (prevalence 18%).
+- Original `diarrhea_last_2_weeks` unchanged except the Congo source correction
+  (its CA2 values were never valid diarrhea data).
+
+### Result
+
+- `CP_diarrhea_last_2_weeks`: 1=Yes / 0=No, domain exactly {0,1,NULL} across the
+  CH table. (Run `--verify` for live counts.)
+
+### DB status: ✅ Done (2026-07-29)
+
+`CP_diarrhea_last_2_weeks` added; set via a `(dataset_name, raw_code) → cp` map
+join (keyless — CP_ depends only on dataset + raw value); Congo_MICS5 delete +
+re-inserted from patched parquet (base CA1 + CP_); `ind_que_CH_MICS` Congo raw
+col fixed to CA1 and `CP_` provenance mirrored.
+
+### Parquet status: ✅ Done (2026-07-29)
+
+Snapshot `ch_merged.parquet.bak_p15`.
+
+### Code
+
+`MICS-CH/src/patch_diarrhea.py` — per-dataset label classifier (reads each
+dataset's `ch.yaml` value labels), Congo CA1 recovery, `patch_yaml()` +
+`patch_parquet()` + `patch_db()` + `--verify`.
