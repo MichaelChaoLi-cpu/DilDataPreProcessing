@@ -56,6 +56,20 @@ Heavy `COUNT(DISTINCT)`/full-scan queries: run in background + Monitor; reading
 the parquet columns is often faster than the DB.
 
 ### 2. Assess backfill / alignment options
+
+**Never trust that "missing" means "not collected" — the alignment is often
+wrong or incomplete.** A concept may sit in a raw column the alignment didn't
+map, or in a different questionnaire module than expected (e.g. "fever in last
+2 weeks" moved into the MALARIA module `ML1` in MICS4-6, so the fever alignment
+that only looked at the `CA` module missed 8 whole datasets — P16; Congo's
+diarrhea was mapped to `CA2`=fluid intake instead of `CA1` — P15). So for EVERY
+careful-process, review the fully-missing datasets against their raw metadata:
+**open each `data/<MOD>/raw/<ds>/<mod>.yaml`, scan its column LABELS
+(multilingual — EN/FR/ES/PT) for one matching the concept that isn't mapped, and
+read its value labels.** Treat a fully-NULL dataset as "suspected alignment
+error until proven otherwise", not "absent". Recover the genuine ones (source
+fix in `alignment_v2.yaml` + guarded backfill) and report the rest.
+
 For missing coverage, in order of trust:
 - **Cross-module** (HL/HH/CH/WM): usually impossible — confirm which module
   *owns* the concept (grep each `alignment_v2.yaml`). Marriage/fertility/anthro
@@ -88,6 +102,14 @@ NEVER ship derived/backfilled values without a gate:
 - **Positional backfill guard**: when aligning SAV rows to parquet by order
   (broken keys), require `hh_number == HH2` (or equivalent) 100% before writing;
   skip + report the dataset otherwise (Kyrgyzstan/Mozambique had broken keys).
+- **Coverage check (silent-NULL guard)**: after building CP_, assert every
+  dataset that had a non-null base still has a non-null CP_ (compare per-dataset
+  base-non-null vs CP_-non-null counts). A dataset that drops to zero means the
+  cleaning/mapping didn't match its actual values — e.g. a value-label map built
+  from the wrong source column of a multi-source dataset, so the merged base
+  values ({0,100}) match none of the map keys ({1,2}) and all go NULL (P16
+  fever: 19 datasets / 124k rows). Fix by selecting the map that COVERS the
+  values actually present in the base column, not just the nicest labels.
 
 ### 5. Build the patch `MICS-<MOD>/src/patch_<var>.py`
 - `CP_<var>` = cleaned copy; original unchanged (backfill is additive only).

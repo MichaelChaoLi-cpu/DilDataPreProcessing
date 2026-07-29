@@ -26,6 +26,7 @@ Records post-hoc corrections to canonical variables. Each entry documents what c
 | P13 | 2026-07-28 | WM | `CP_children_ever_born` (valid 0-20) + 9 datasets recovered from raw CEB columns | ✅ | ✅ | `MICS-WM/src/patch_children_ever_born.py`, `scan_children_ever_born.py` |
 | P14 | 2026-07-28 | CH | `CP_bmi_for_age_zscore` (clean \|z\|≤6 + WHO-2006 derivation, 33 datasets) | ✅ | ✅ | `MICS-CH/src/patch_bmi_for_age.py` |
 | P15 | 2026-07-29 | CH | `CP_diarrhea_last_2_weeks` (per-dataset label harmonization 1=Yes/0=No) + Congo_MICS5 source fix CA2→CA1 | ✅ | ✅ | `MICS-CH/src/patch_diarrhea.py` |
+| P16 | 2026-07-29 | CH | `CP_fever_last_2_weeks` (per-dataset label harmonization 1=Yes/0=No) + 9 datasets recovered from unmapped/mis-mapped `ML1`/`CA6AA`/`PCA6` | ✅ | ✅ | `MICS-CH/src/patch_fever.py` |
 
 ---
 
@@ -691,3 +692,83 @@ Snapshot `ch_merged.parquet.bak_p15`.
 `MICS-CH/src/patch_diarrhea.py` — per-dataset label classifier (reads each
 dataset's `ch.yaml` value labels), Congo CA1 recovery, `patch_yaml()` +
 `patch_parquet()` + `patch_db()` + `--verify`.
+
+---
+
+## P16 — `CP_fever_last_2_weeks` (per-dataset label harmonization)
+
+**Module:** CH (`final_CH_MICS`, `ind_que_CH_MICS`, `ch_merged.parquet`)
+
+### Problem
+
+Same family as P15 (diarrhea): `fever_last_2_weeks` is a yes/no child-symptom
+variable whose coding varies across datasets (standard 1=Yes/2=No; a set of
+MICS2/2000 datasets use {0,100}; sentinels 7/8/9). No scale flips (no
+Iraq/Yemen "yes-without-blood").
+
+**Alignment gap — reviewed the raw metadata of ALL 93 uncovered datasets**
+(don't trust "missing" = "not collected"). Findings:
+- **9 actually collected fever but were unmapped or mis-mapped** — the "fever in
+  last 2 weeks" question sits in the **malaria module `ML1`** (MICS4-6
+  francophone), a Spanish `CA6AA`, or Palestine's `PCA6` (which was
+  **mis-mapped to `respondent_name`**). The CA-module-only fever alignment
+  missed them.
+- The remaining ~84 genuinely lack a *fever-occurrence* question: ~53 have no
+  fever column at all (mostly non-malaria-module MICS4/5/6 — Kazakhstan,
+  Mongolia, Serbia, Cuba, Qatar…), and ~31 have only *different* fever concepts
+  (symptom-recognition `CA14C`/`CI11C` "child develops a fever", or treatment
+  `ML5`–`ML8` "gave medicine for fever") — correctly NOT mapped to
+  fever_last_2_weeks.
+
+### Fix
+
+`CP_fever_last_2_weeks` via **per-dataset value-label mapping** → 1=Yes, 0=No,
+NULL=DK/missing/unknown. Sentinel codes 7/8/9 forced NULL; {0,100} datasets
+decoded 100=Yes, 0=No (implied prevalence 3–28%).
+
+**Recovered all 9 gap datasets** by mapping their raw column →
+`fever_last_2_weeks` (added to `alignment_v2.yaml`, backup `.bak_p16`) and
+backfilling base positionally, guarded `household_number == HH2`/`CHHHNO` = 100%:
+Burkina Faso 2006, Djibouti 2006, Guinea-Bissau 2006, Mauritania 2007, Togo 2006
+(`ML1`); Dominican Republic MICS5, Paraguay MICS5 (`CA6AA`); Sao Tome 2000
+(`ML1`, via `ChST.sav` / key `CHHHNO`); State of Palestine MICS4 (`PCA6`, "Did
+(name) have fever at any time during the past two weeks", which had been
+mis-mapped to `respondent_name` — that separate mis-map is noted for follow-up).
+Mali MICS4 `IM17` correctly excluded (yellow-fever *vaccination*, not illness).
+Raw column otherwise unchanged.
+
+### Guard caught a real bug (coverage-aware map selection)
+
+The first run silently NULLed **19 datasets / 124,170 rows**: these are
+multi-source datasets whose merged `fever_last_2_weeks` base holds `{0,100}`
+(from the `FEVER` column) while alignment also maps a 1/2-labelled column — the
+label-based picker chose `{1:Yes,2:No}`, which matches none of the `{0,100}`
+base values → all NULL. Fix: choose, among a dataset's candidate maps plus the
+`{0,100}` fallback, the one that **covers the values actually present in the
+base column** (tie → tightest, non-fallback). A post-patch check (base-non-null
+datasets must equal CP_-non-null datasets) is what surfaced it. (P15/diarrhea
+was unaffected — verified 221/221 datasets.)
+
+### Result
+
+- `CP_fever_last_2_weeks`: **1,185,212** non-null across **167 datasets**
+  (was 158 before recovery; +9 datasets). Yes 269,123 / No 916,089 (prevalence
+  22.7%). Domain exactly {0,1,NULL}.
+
+### DB status: ✅ Done (2026-07-29)
+
+`CP_fever_last_2_weeks` set via a keyless `(dataset_name, raw_code)→cp` map join
+for unchanged datasets; the 9 recovered datasets delete + re-inserted from the
+patched parquet (base changed); `ind_que_CH_MICS` gained the ML1/CA6AA/PCA6 base
+rows and mirrored `CP_` rows.
+
+### Parquet status: ✅ Done (2026-07-29)
+
+Snapshot `ch_merged.parquet.bak_p16`.
+
+### Code
+
+`MICS-CH/src/patch_fever.py` — per-dataset label classifier (sentinel codes →
+NULL; multi-source + coverage-aware column selection); `RECOVER` map + guarded
+`_recover()` for the ML1/CA6AA gap; `patch_parquet()` + `patch_yaml()` +
+`patch_db()` + `--verify`.
