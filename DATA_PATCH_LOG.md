@@ -561,50 +561,66 @@ Snapshot `wm_merged.parquet.bak_p13`.
 
 ---
 
-## P14 — `CP_bmi_for_age_zscore` (clean-only)
+## P14 — `CP_bmi_for_age_zscore` (clean to |z|≤6 + WHO-2006 derivation)
 
 **Module:** CH (`final_CH_MICS`, `ind_que_CH_MICS`, `ch_merged.parquet`)
 
 ### Problem
 
-`bmi_for_age_zscore` (WHO BMI-for-age z) ranged −15.57 to 999.99: `999.99` is a
-sentinel and there are biologically-implausible extremes. MICS already flags
-these in `bmi_flag` (0 = plausible 965,716; 1 = implausible 59,623; NULL = not
-computed 658,864). Coverage is 61.4% (145 datasets) — ~14pp below the sibling
-WHO z-scores (weight/height-for-age ~76%), because MICS does not routinely
-pre-compute BMI-for-age for under-5.
+`bmi_for_age_zscore` (WHO BMI-for-age z) ranged −15.57 to 999.99 (999.99 =
+sentinel, plus implausible extremes) and covered only 61.4% of children / **94
+countries** — ~14pp below the sibling WHO z-scores, because MICS does not
+routinely pre-compute BMI-for-age for under-5.
 
-### Decision
+### Fix — two parts
 
-**Clean-only** this round. A derivation to raise coverage (compute BMI-for-age z
-from raw `child_weight_kg` / `child_height_or_length_cm` / age / `sex_of_child`
-via the WHO 2006 standards — ~269k of the 650k missing rows are derivable →
-~77% coverage) was scoped out; it needs a bundled WHO LMS reference and age
-reconstruction (`child_age_days` 51%, or from birth/interview dates). Note: for
-under-5 WHO prefers `weight_for_height_zscore` (75.8%); BMI-for-age is a 5–19y
-indicator.
+**1. Clean** → `CP_bmi_for_age_zscore` keeps values with **|z| ≤ 6** (a more
+reasonable bound than the WHO |z|≤5 flag); 999.99 and extremes → NULL. Raw
+`bmi_for_age_zscore` unchanged.
 
-### Fix
+**2. Derive** the fully-missing datasets. Cross-module backfill is impossible
+(women/child-anthropometry only) and summing the sons/daughters breakdown was
+rejected earlier (unrelated). BMI-for-age z is instead computed from
+`child_weight_kg` / `child_height_or_length_cm` / age / `sex_of_child` via the
+**WHO 2006 Child Growth Standards** (BMI-for-age LMS embedded in the patch;
+age from `child_age_days`, else months, else birth/interview dates).
 
-`CP_bmi_for_age_zscore` = `bmi_for_age_zscore` where `bmi_flag = 0` AND z in
-[−5, 5]; else NULL. Sentinel 999.99 (226 rows) and flagged/implausible values
-dropped. Raw column unchanged.
+Validated against the 143 datasets that already have z: median |diff| **0.004**,
+r **0.989** — the method reproduces MICS's own values.
+
+**Guard against serious error.** Naive derivation on the missing datasets
+produced wild distributions (SD 2–12, up to 94% |z|>6) because their raw
+weight/height contain uncleaned sentinels. So inputs are cleaned (weight 1–40
+kg, height 38–140 cm), z clipped to |z|≤6, and a dataset is derived ONLY if its
+resulting distribution is healthy: **drop ≤5%, SD 0.7–1.8, |mean| ≤1.5, n≥100**.
+**33 datasets pass; 11 are excluded** (SD>1.8 after cleaning — systematic
+measurement/unit problems): Djibouti, Albania MICS2, Guinea-Bissau, Nigeria
+2007, Syria, Burkina Faso, DR Congo, Bosnia, Belize, Albania 2005, Palestinians
+in Lebanon. The gate runs in-code, so the split is reproducible.
+
+`CP_bmi_for_age_zscore_derived`: 1 = derived here, 0 = MICS-provided, NULL =
+CP_ NULL. Separates/sensitivity-tests derived values.
 
 ### Result
 
-- `CP_bmi_for_age_zscore` valid: **960,345** rows across **145** datasets
-  (~57% of CH). No out-of-range values in the CP_ column.
+- `CP_bmi_for_age_zscore`: **1,165,590** rows across **178 datasets / 106
+  countries** (was ~960k / 145 / 94). Derived: **186,990** rows across 33
+  datasets, adding **+12 countries** (Belarus, Benin, Côte d'Ivoire, Gambia,
+  Guinea, Macedonia, Madagascar, Niger, Senegal, Somalia, Tajikistan, Zimbabwe).
+- No out-of-range values in the CP_ column.
 
-### DB status: ✅ Done (2026-07-28)
+### DB status: ✅ Done (2026-07-29)
 
-`CP_bmi_for_age_zscore` added; whole-table clean UPDATE; `ind_que_CH_MICS`
-mirrored `CP_` provenance rows. Comments + `_data_issues` P14 via
-`build_db_documentation.py`.
+`CP_bmi_for_age_zscore` + `CP_bmi_for_age_zscore_derived` added; existing rows
+re-cleaned to |z|≤6 in place; the 33 derived datasets delete + re-inserted from
+patched parquet; `ind_que_CH_MICS` mirrored `CP_` rows + derived-source rows.
 
-### Parquet status: ✅ Done (2026-07-28)
+### Parquet status: ✅ Done (2026-07-29)
 
-Snapshot `ch_merged.parquet.bak_p14`.
+Snapshot `ch_merged.parquet.bak_p14` (pre-P14).
 
 ### Code
 
-`MICS-CH/src/patch_bmi_for_age.py` — `patch_parquet()` + `patch_db()` + `--verify`.
+`MICS-CH/src/patch_bmi_for_age.py` — embedded WHO 2006 BMI-for-age LMS,
+`_zscore()`, in-code data-quality gate, `patch_parquet()` + `patch_db()` +
+`--verify`.

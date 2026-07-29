@@ -117,7 +117,8 @@ HL: education_years (+_estimated)
 CH: child_age_years (0-4), child_age_months (0-59, only ~42 month-coded
     datasets), mother_education_harmonized (0-3 as above),
     mother_education_years (+_estimated),
-    CP_bmi_for_age_zscore (cleaned, flag=0 & |z|<=5; WHO prefers WHZ for <5y)
+    CP_bmi_for_age_zscore (cleaned |z|<=6 + WHO-2006 derived where missing;
+    see CP_bmi_for_age_zscore_derived; WHO prefers WHZ for <5y)
 HH: sex_of_household_head (1/2, cleaned)
 
 Full change history: _data_issues (status='fixed', patch_id P01-P10) and
@@ -257,11 +258,14 @@ HISTORY = [
      "2005-06 skipped: hh_number!=HH2). Component derivation rejected (~16% "
      "exact). ~2.43M valid values across 221 datasets."),
     ("P14", "final_CH_MICS", "CP_bmi_for_age_zscore",
-     "bmi_for_age_zscore carried sentinel 999.99 and biologically-implausible "
-     "extremes; 61% coverage (below the 76% of the sibling WHO z-scores).",
-     "Added CP_bmi_for_age_zscore keeping bmi_flag=0 and z in [-5,5] only "
-     "(~960k rows). Clean-only; derivation from raw weight/height/age/sex "
-     "(WHO 2006, ~+269k rows) deferred. WHO prefers weight_for_height for <5y."),
+     "bmi_for_age_zscore carried sentinel 999.99 and implausible extremes; 61% "
+     "coverage / 94 countries (below the sibling WHO z-scores).",
+     "Added CP_bmi_for_age_zscore: cleaned to |z|<=6, PLUS derived (WHO 2006 "
+     "BMI-for-age from weight/height/age/sex) for 33 fully-missing datasets that "
+     "passed a data-quality gate (drop<=5%, SD 0.7-1.8, |mean|<=1.5); 11 "
+     "error-prone datasets excluded (SD>1.8). CP_bmi_for_age_zscore_derived "
+     "flags derived rows. ~1.17M rows / 178 datasets / 106 countries "
+     "(+187k derived / +12 countries)."),
 ]
 
 # ---------------------------------------------------------------------------
@@ -298,8 +302,9 @@ CURATED: dict[tuple[str, str], str] = {
     ("final_CH_MICS", "mother_education_harmonized"): "Mother's education, ISCED 4-level 0-3. NULL=sentinel/unmapped. (P03)",
     ("final_CH_MICS", "mother_education_years"): "Mother's years of schooling 0-25: WM-linked, HL fallback, coarse midpoint last resort. (P09)",
     ("final_CH_MICS", "mother_education_years_estimated"): "1 = estimated (midpoint/coarse fallback), 0 = exact. (P09)",
-    ("final_CH_MICS", "bmi_for_age_zscore"): "BMI-for-age z-score (WHO), RAW: keeps sentinel 999.99 and flagged implausible values. Use CP_bmi_for_age_zscore. NB WHO prefers weight_for_height_zscore for under-5. (P14)",
-    ("final_CH_MICS", "CP_bmi_for_age_zscore"): "BMI-for-age z-score, cleaned: bmi_flag=0 and z in [-5,5] only (999.99 sentinel + implausible nulled). ~960k rows / 145 datasets; not derivation-backfilled. (P14)",
+    ("final_CH_MICS", "bmi_for_age_zscore"): "BMI-for-age z-score (WHO), RAW/MICS-provided: keeps sentinel 999.99 and implausible values. Use CP_bmi_for_age_zscore. NB WHO prefers weight_for_height_zscore for under-5. (P14)",
+    ("final_CH_MICS", "CP_bmi_for_age_zscore"): "BMI-for-age z-score, cleaned to |z|<=6, PLUS derived (WHO 2006 from weight/height/age/sex) for 33 fully-missing datasets that passed a data-quality gate. ~1.17M rows / 178 datasets. See CP_bmi_for_age_zscore_derived. (P14)",
+    ("final_CH_MICS", "CP_bmi_for_age_zscore_derived"): "1 = CP_bmi_for_age_zscore was derived here (WHO 2006), 0 = MICS-provided, NULL = CP_ is NULL. ~187k derived. (P14)",
     ("final_CH_MICS", "mother_caretaker_line_number"): "Roster line of mother/caretaker; join to WM.line_number or HL.line_number.",
     # HH
     ("final_HH_MICS", "sex_of_household_head"): "1 = male, 2 = female, NULL = unknown. Verified & cleaned across all datasets. (P10)",
