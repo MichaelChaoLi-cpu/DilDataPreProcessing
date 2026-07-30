@@ -112,7 +112,8 @@ WM: woman_age (15-49), woman_age_group (1-7 = 5yr bands),
     media_tv/radio/newspaper_frequency_harmonized (0 never /1 <weekly
     /2 >=weekly /3 ~daily), education_years (+_estimated),
     CP_age_at_first_union (cleaned, valid 8-49; NULL=never-married),
-    CP_children_ever_born (cleaned, valid 0-20)
+    CP_children_ever_born (cleaned, valid 0-20),
+    CP_first_birth_year (Gregorian CE 1950-2024; CMC-derived + calendar-harmonised)
 HL: education_years (+_estimated)
 CH: child_age_years (0-4), child_age_months (0-59, only ~42 month-coded
     datasets), mother_education_harmonized (0-3 as above),
@@ -285,6 +286,14 @@ HISTORY = [
      "datasets from raw ML1/CA6AA/PCA6 (guarded) -> 167 datasets. Remaining "
      "uncovered genuinely lack a fever-occurrence question. Coverage-aware map "
      "selection avoids silently NULLing multi-source data."),
+    ("P18", "final_WM_MICS", "CP_first_birth_year",
+     "first_birth_year covered only 116 datasets, with sentinels (9997/8/9) and "
+     "NON-Gregorian calendars (Thailand Buddhist Era +543, Nepal Bikram Sambat "
+     "+57) and a 2-digit-year dataset.",
+     "Added CP_first_birth_year (Gregorian CE, 1950-2024): derived from "
+     "first_child_birth_date_cmc where valid (Gregorian, matches year field 100% "
+     "and is calendar-agnostic), else the year field converted (Thai -543 / Nepal "
+     "-57 / 2-digit pivot). Coverage 116 -> 190 datasets."),
     ("P17", "final_CH_MICS", "CP_cough_last_2_weeks",
      "cough_last_2_weeks coding varies (1/2, 0/1, sentinels); and 5 datasets were "
      "wrongly missing because their cough-occurrence column (CI6/CA7/CA5) was "
@@ -317,6 +326,8 @@ CURATED: dict[tuple[str, str], str] = {
     ("final_WM_MICS", "CP_age_at_first_union"): "Age at first marriage/union, cleaned: valid range 8-49 only (sentinels/0/neg/<8/>49 nulled). NULL also = never-married. 211 datasets. (P12)",
     ("final_WM_MICS", "children_ever_born"): "Total children ever born to the woman, RAW: keeps sentinel 99 and rare implausibly-high values; some cross-var inconsistencies (vs children_dead/ever_given_birth) untouched. Use CP_children_ever_born. (P13 backfilled 10 datasets)",
     ("final_WM_MICS", "CP_children_ever_born"): "Children ever born, cleaned: valid 0-20 only (99/>20 nulled). ~223 datasets. Cross-variable inconsistencies intentionally kept. (P13)",
+    ("final_WM_MICS", "first_birth_year"): "Year of woman's first birth, RAW: only ~116 datasets; sentinels 9997/8/9; NON-Gregorian calendars (Thailand Buddhist Era +543, Nepal Bikram Sambat +57) and a 2-digit dataset. Use CP_first_birth_year. (P18)",
+    ("final_WM_MICS", "CP_first_birth_year"): "Year of first birth, Gregorian CE, cleaned & calendar-harmonised: derived from first_child_birth_date_cmc where valid (calendar-agnostic), else the year field converted (Thai -543 / Nepal -57 / 2-digit pivot); valid 1950-2024. ~191 datasets. (P18)",
     # HL
     ("final_HL_MICS", "relationship_to_head"): "Relationship to household head; 1 = head. Head is roster line 1 by MICS design.",
     ("final_HL_MICS", "sex"): "1 = male, 2 = female.",
@@ -359,7 +370,7 @@ CP_COLUMNS: dict[str, list[str]] = {
         "media_tv_frequency_harmonized", "media_radio_frequency_harmonized",
         "media_newspaper_frequency_harmonized", "education_grade",
         "education_grade_completed", "education_years", "education_years_estimated",
-        "age_at_first_union", "children_ever_born",
+        "age_at_first_union", "children_ever_born", "first_birth_year",
     ],
     "final_HL_MICS": [
         "highest_grade_completed", "ever_completed_grade",

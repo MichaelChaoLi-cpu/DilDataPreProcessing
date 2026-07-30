@@ -28,6 +28,7 @@ Records post-hoc corrections to canonical variables. Each entry documents what c
 | P15 | 2026-07-29 | CH | `CP_diarrhea_last_2_weeks` (per-dataset label harmonization 1=Yes/0=No) + Congo_MICS5 source fix CA2→CA1 | ✅ | ✅ | `MICS-CH/src/patch_diarrhea.py` |
 | P16 | 2026-07-29 | CH | `CP_fever_last_2_weeks` (per-dataset label harmonization 1=Yes/0=No) + 9 datasets recovered from unmapped/mis-mapped `ML1`/`CA6AA`/`PCA6` | ✅ | ✅ | `MICS-CH/src/patch_fever.py` |
 | P17 | 2026-07-30 | CH | `CP_cough_last_2_weeks` (per-dataset label harmonization 1=Yes/0=No) + 5 datasets recovered from unmapped `CI6`/`CA7`/`CA5` | ✅ | ✅ | `MICS-CH/src/patch_cough.py` |
+| P18 | 2026-07-30 | WM | `CP_first_birth_year` (Gregorian CE; CMC-derived + Buddhist/Bikram-Sambat calendar conversion); coverage 116→190 | ✅ | ✅ | `MICS-WM/src/patch_first_birth_year.py` |
 
 ---
 
@@ -829,3 +830,62 @@ Snapshot `ch_merged.parquet.bak_p17`.
 `MICS-CH/src/patch_cough.py` — per-dataset label classifier + coverage-aware
 selection; `RECOVER` map + guarded `_recover()`; `patch_parquet()` +
 `patch_yaml()` + `patch_db()` + `--verify`.
+
+---
+
+## P18 — `CP_first_birth_year` (Gregorian CE; CMC-derived + calendar harmonisation)
+
+**Module:** WM (`final_WM_MICS`, `ind_que_WM_MICS`, `wm_merged.parquet`)
+
+### Problem
+
+Raw `first_birth_year` is not cross-country usable:
+- only **116/251 datasets** populated;
+- sentinels 9997/9998/9999 (~42.7k rows);
+- **non-Gregorian calendars** — Thailand stores the **Buddhist Era** year
+  (2513–2559 = 1970–2016; BE = CE + 543); Nepal MICS5 stores the **Bikram
+  Sambat** year (2035–2071 = 1978–2014; BS ≈ CE + 57);
+- Palestinians in Lebanon 2006 uses a 2-digit year (0–99).
+
+### Investigation
+
+`first_child_birth_date_cmc` (Gregorian century-month code) is present in **138**
+datasets. Converted via `1900 + floor((cmc-1)/12)` it reproduces the Gregorian
+year field **exactly** (100% on 487,969 rows where both exist) and is
+**calendar-agnostic** — Thailand's CMC already yields CE (1976–2019), so
+CMC-derivation sidesteps the BE/BS problem entirely. Nepal MICS5's CMC is NOT
+Gregorian (out of range) → Nepal must use the BS year field − 57. Thailand's 4
+datasets have NO CMC → must use the BE year field − 543.
+
+### Fix
+
+`CP_first_birth_year` (Gregorian CE, valid **1950–2024**), per row:
+1. CMC-derived year `1900 + floor((cmc-1)/12)` if in [1950, 2024]; else
+2. the year field converted to CE per the dataset's calendar — Thailand −543,
+   Nepal −57, Palestinians 2-digit pivot (yy≤24→2000+yy else 1900+yy), else
+   as-is — if in range; else NULL.
+
+Sentinels and out-of-calendar values fall outside [1950, 2024] and become NULL
+automatically. Raw `first_birth_year` is unchanged; CP_ is a pure per-row
+function of existing columns (no SAV / yaml changes, no re-insertion).
+
+### Result
+
+- `CP_first_birth_year`: **1,433,972** non-null across **190 datasets** (was
+  116; +74 via CMC), range exactly **1950–2024** (BE/BS correctly converted).
+
+### DB status: ✅ Done (2026-07-30)
+
+Single `UPDATE` computing the COALESCE(CMC-derived, calendar-converted-year)
+expression; `ind_que_WM_MICS` mirrored base `first_birth_year` rows to `CP_`
+plus a `derived` (source `first_child_birth_date_cmc`) row for each CMC-only
+dataset.
+
+### Parquet status: ✅ Done (2026-07-30)
+
+Snapshot `wm_merged.parquet.bak_p18`.
+
+### Code
+
+`MICS-WM/src/patch_first_birth_year.py` — `_compute()` (CMC-derive + calendar
+convert), `patch_parquet()` + `patch_db()` + `--verify`.
