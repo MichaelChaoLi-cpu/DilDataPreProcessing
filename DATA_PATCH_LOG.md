@@ -30,6 +30,7 @@ Records post-hoc corrections to canonical variables. Each entry documents what c
 | P17 | 2026-07-30 | CH | `CP_cough_last_2_weeks` (per-dataset label harmonization 1=Yes/0=No) + 5 datasets recovered from unmapped `CI6`/`CA7`/`CA5` | ✅ | ✅ | `MICS-CH/src/patch_cough.py` |
 | P18 | 2026-07-30 | WM | `CP_first_birth_year` (Gregorian CE; CMC-derived + Buddhist/Bikram-Sambat calendar conversion); coverage 116→190 | ✅ | ✅ | `MICS-WM/src/patch_first_birth_year.py` |
 | P19 | 2026-07-30 | WM | `CP_age_at_first_birth` (+`_estimated`) derived from CMC diff (calendar-agnostic) with year-method fallback; 167 datasets | ✅ | ✅ | `MICS-WM/src/patch_age_at_first_birth.py` |
+| P20 | 2026-07-30 | WM | `CP_place_of_delivery` (harmonized 5-category via value labels) + 34 datasets recovered from unmapped `MN18`/`MN20`/`MN8`/`NN3` | ✅ | ✅ | `MICS-WM/src/patch_place_of_delivery.py` |
 
 ---
 
@@ -942,3 +943,69 @@ Snapshot `wm_merged.parquet.bak_p19`.
 
 `MICS-WM/src/patch_age_at_first_birth.py` — `_compute()` (CMC diff + year
 fallback), `patch_parquet()` + `patch_db()` + `--verify`.
+
+---
+
+## P20 — `CP_place_of_delivery` (harmonized 5-category) + 33-dataset recovery
+
+**Module:** WM (`final_WM_MICS`, `ind_que_WM_MICS`, `wm_merged.parquet`, `alignment_v2.yaml`)
+
+### Problem
+
+`place_of_delivery` uses the MICS/DHS scheme with country-specific numeric codes
+(1x home, 2x public, 3x private, 4x/5x/6x other/NGO/UNRWA, 96 other, 9x missing;
+plus single-digit country schemes) — not cross-country comparable. Only 176
+datasets were mapped, and:
+- **Philippines 1999** was mis-mapped to `F14` = "Who **decided** the place of
+  delivery" (not where) → left NULL.
+- One dataset's column was actually a post-partum **duration** (Hours/Days/Weeks).
+- **34 datasets** with no coverage actually collected place of delivery in an
+  unmapped column (`MN18`/`MN20`/`MN8`/`NN3` — "Lieu d'accouchement" / "Lugar del
+  parto" / "Where did you give birth" / "Onde teve o parto"), found by reviewing
+  each uncovered dataset's raw metadata and validating labels via the classifier
+  (excludes "who assisted/decided", duration, and Mozambique 2008's "where did
+  you WANT to give birth").
+
+### Fix
+
+`CP_place_of_delivery` via **per-dataset value-label mapping** (multilingual
+EN/FR/ES/PT), like education harmonisation (P02):
+| CP_ | meaning |
+|-----|---------|
+| 1 | Home |
+| 2 | Public health facility |
+| 3 | Private health facility |
+| 4 | Other health facility (NGO/mission/faith/UNRWA, or sector unspecified incl. "DK public or private") |
+| 5 | Other / en route (other, on the road, checkpoint) |
+| NULL | DK / missing / incoherent / unmappable (incl. duration & yes/no mis-maps) |
+
+**Recovered 34 datasets** by mapping their raw place column (incl. Mozambique 2008 `MN8`, whose earlier candidate `MN7_A` was the *intended* place and correctly rejected) → `place_of_delivery`
+(added to `alignment_v2.yaml`, backup `.bak_p20`), backfilling base positionally
+(guarded `hh_number == HH2` = 100%), then classifying. 4 candidates skipped
+(guard could not verify alignment even via key-join — Sao Tome MICS5,
+Kyrgyzstan, Bolivia 2000, Senegal 2000: no usable household key or 0%
+positional/join match). The other ~38 uncovered datasets genuinely lack a
+place-of-delivery question.
+
+### Result
+
+- `CP_place_of_delivery`: **543,011** non-null across **209 datasets** (was 175;
+  +34 recovered). Distribution: 1 Home 185,376 / 2 Public 230,287 / 3 Private
+  58,912 / 4 Other-facility 64,164 / 5 Other 4,272.
+
+### DB status: ✅ Done (2026-07-30)
+
+Keyless `(dataset_name, raw_code)→cp` map join (guarded numeric cast, base is
+TEXT) for unchanged datasets; the 34 recovered datasets delete + re-inserted
+from patched parquet; `ind_que_WM_MICS` gained the recovered base rows and
+mirrored `CP_` rows.
+
+### Parquet status: ✅ Done (2026-07-30)
+
+Snapshot `wm_merged.parquet.bak_p20`.
+
+### Code
+
+`MICS-WM/src/patch_place_of_delivery.py` — 5-category multilingual label
+classifier; `RECOVER` map + guarded `_recover()`; `patch_parquet()` +
+`patch_yaml()` + `patch_db()` + `--verify`.
