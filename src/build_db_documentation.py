@@ -119,8 +119,8 @@ CH: child_age_years (0-4), child_age_months (0-59, only ~42 month-coded
     mother_education_years (+_estimated),
     CP_bmi_for_age_zscore (cleaned |z|<=6 + WHO-2006 derived where missing;
     see CP_bmi_for_age_zscore_derived; WHO prefers WHZ for <5y),
-    CP_diarrhea_last_2_weeks / CP_fever_last_2_weeks (harmonized 1=Yes/0=No;
-    per-dataset label mapping)
+    CP_diarrhea_last_2_weeks / CP_fever_last_2_weeks / CP_cough_last_2_weeks
+    (harmonized 1=Yes/0=No; per-dataset label mapping)
 HH: sex_of_household_head (1/2, cleaned)
 
 Full change history: _data_issues (status='fixed', patch_id P01-P10) and
@@ -285,6 +285,15 @@ HISTORY = [
      "datasets from raw ML1/CA6AA/PCA6 (guarded) -> 167 datasets. Remaining "
      "uncovered genuinely lack a fever-occurrence question. Coverage-aware map "
      "selection avoids silently NULLing multi-source data."),
+    ("P17", "final_CH_MICS", "CP_cough_last_2_weeks",
+     "cough_last_2_weeks coding varies (1/2, 0/1, sentinels); and 5 datasets were "
+     "wrongly missing because their cough-occurrence column (CI6/CA7/CA5) was "
+     "never mapped.",
+     "Added CP_cough_last_2_weeks (1=Yes/0=No/NULL) via per-dataset value-label "
+     "mapping. Reviewed all 29 uncovered datasets' raw metadata: recovered 5 "
+     "(Cameroon 2000, Indonesia MICS2, Dominican Rep MICS5, Paraguay MICS5, "
+     "Palestinians in Lebanon); CA8/ca6 'faster breathing while ill with cough' "
+     "correctly excluded (pneumonia sign). 227 datasets."),
 ]
 
 # ---------------------------------------------------------------------------
@@ -328,6 +337,8 @@ CURATED: dict[tuple[str, str], str] = {
     ("final_CH_MICS", "CP_diarrhea_last_2_weeks"): "Diarrhoea in last 2 weeks, harmonized: 1=Yes, 0=No, NULL=DK/missing/unknown. Per-dataset label-driven mapping (handles 2=yes-without-blood, 0/100). (P15)",
     ("final_CH_MICS", "fever_last_2_weeks"): "Had fever in last 2 weeks, RAW: coding varies across datasets (1/2, 0/100, sentinels). Use CP_fever_last_2_weeks. (P16)",
     ("final_CH_MICS", "CP_fever_last_2_weeks"): "Fever in last 2 weeks, harmonized: 1=Yes, 0=No, NULL=DK/missing/unknown. Per-dataset label mapping; 9 datasets recovered from unmapped/mis-mapped raw cols (malaria-module ML1/CA6AA/PCA6) the alignment had missed. 167 datasets. (P16)",
+    ("final_CH_MICS", "cough_last_2_weeks"): "Had cough in last 2 weeks, RAW: coding varies across datasets (1/2, 0/1, sentinels). Use CP_cough_last_2_weeks. (P17)",
+    ("final_CH_MICS", "CP_cough_last_2_weeks"): "Cough in last 2 weeks, harmonized: 1=Yes, 0=No, NULL=DK/missing/unknown. Per-dataset label mapping; 5 datasets recovered from unmapped raw CI6/CA7/CA5 the alignment had missed. (P17)",
     ("final_CH_MICS", "mother_caretaker_line_number"): "Roster line of mother/caretaker; join to WM.line_number or HL.line_number.",
     # HH
     ("final_HH_MICS", "sex_of_household_head"): "1 = male, 2 = female, NULL = unknown. Verified & cleaned across all datasets. (P10)",
@@ -358,6 +369,7 @@ CP_COLUMNS: dict[str, list[str]] = {
         "mother_education_harmonized", "child_age_months", "child_age_years",
         "mother_education_years", "mother_education_years_estimated",
         "bmi_for_age_zscore", "diarrhea_last_2_weeks", "fever_last_2_weeks",
+        "cough_last_2_weeks",
     ],
     "final_HH_MICS": ["sex_of_household_head"],
 }

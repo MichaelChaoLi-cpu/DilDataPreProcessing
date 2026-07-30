@@ -27,6 +27,7 @@ Records post-hoc corrections to canonical variables. Each entry documents what c
 | P14 | 2026-07-28 | CH | `CP_bmi_for_age_zscore` (clean \|z\|≤6 + WHO-2006 derivation, 33 datasets) | ✅ | ✅ | `MICS-CH/src/patch_bmi_for_age.py` |
 | P15 | 2026-07-29 | CH | `CP_diarrhea_last_2_weeks` (per-dataset label harmonization 1=Yes/0=No) + Congo_MICS5 source fix CA2→CA1 | ✅ | ✅ | `MICS-CH/src/patch_diarrhea.py` |
 | P16 | 2026-07-29 | CH | `CP_fever_last_2_weeks` (per-dataset label harmonization 1=Yes/0=No) + 9 datasets recovered from unmapped/mis-mapped `ML1`/`CA6AA`/`PCA6` | ✅ | ✅ | `MICS-CH/src/patch_fever.py` |
+| P17 | 2026-07-30 | CH | `CP_cough_last_2_weeks` (per-dataset label harmonization 1=Yes/0=No) + 5 datasets recovered from unmapped `CI6`/`CA7`/`CA5` | ✅ | ✅ | `MICS-CH/src/patch_cough.py` |
 
 ---
 
@@ -772,3 +773,59 @@ Snapshot `ch_merged.parquet.bak_p16`.
 NULL; multi-source + coverage-aware column selection); `RECOVER` map + guarded
 `_recover()` for the ML1/CA6AA gap; `patch_parquet()` + `patch_yaml()` +
 `patch_db()` + `--verify`.
+
+---
+
+## P17 — `CP_cough_last_2_weeks` (per-dataset label harmonization) + 5-dataset recovery
+
+**Module:** CH (`final_CH_MICS`, `ind_que_CH_MICS`, `ch_merged.parquet`, `alignment_v2.yaml`)
+
+### Problem
+
+Same family as P15/P16: `cough_last_2_weeks` is a yes/no child-symptom variable
+whose coding varies across datasets (standard 1=Yes/2=No; Indonesia MICS2 uses
+0=No/1=Yes; sentinels 7/8/9). Cleaner than fever — 222 datasets already covered,
+no {0,100}, no scale flips.
+
+### Alignment gap — reviewed all 29 uncovered datasets' raw metadata
+
+- **5 actually collected cough but were never mapped**: the cough-occurrence
+  question sits in an unmapped `CI6` (MICS2), Spanish `CA7`, or `CA5` — Cameroon
+  2000, Indonesia MICS2, Dominican Republic MICS5, Paraguay MICS5, Palestinians
+  in Lebanon 2006.
+- **Correctly NOT cough**: the `CA8`/`ca6` "did the child breathe faster while
+  ill with cough" columns (Chad/Mali/Mauritania/Mongolia×3, Kyrgyzstan) are a
+  pneumonia/fast-breathing sign, a different concept — excluded.
+- The remaining ~17 genuinely have no cough column (mostly non-ARI-module MICS6
+  — Serbia, Montenegro, Kosovo, North Macedonia, Thailand MICS6, Cuba, Ukraine…).
+
+### Fix
+
+`CP_cough_last_2_weeks` via **per-dataset value-label mapping** → 1=Yes, 0=No,
+NULL=DK/missing/unknown (sentinels 7/8/9 → NULL; coverage-aware map selection).
+**Recovered all 5 gap datasets** by mapping raw `CI6`/`CA7`/`CA5` →
+`cough_last_2_weeks` (added to `alignment_v2.yaml`, backup `.bak_p17`) and
+backfilling base positionally, guarded `household_number == HH2`/`CHHHNO` = 100%.
+Raw column otherwise unchanged.
+
+### Result
+
+- `CP_cough_last_2_weeks`: **1,426,630** non-null across **227 datasets** (was
+  222; +5 recovered). Yes 387,413 / No 1,039,217 (prevalence 27.2%). Domain
+  exactly {0,1,NULL}.
+
+### DB status: ✅ Done (2026-07-30)
+
+Keyless `(dataset_name, raw_code)→cp` map join for unchanged datasets; the 5
+recovered datasets delete + re-inserted from patched parquet; `ind_que_CH_MICS`
+gained the CI6/CA7/CA5 base rows and mirrored `CP_` rows.
+
+### Parquet status: ✅ Done (2026-07-30)
+
+Snapshot `ch_merged.parquet.bak_p17`.
+
+### Code
+
+`MICS-CH/src/patch_cough.py` — per-dataset label classifier + coverage-aware
+selection; `RECOVER` map + guarded `_recover()`; `patch_parquet()` +
+`patch_yaml()` + `patch_db()` + `--verify`.
