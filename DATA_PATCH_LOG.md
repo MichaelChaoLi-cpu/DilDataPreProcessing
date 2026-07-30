@@ -29,6 +29,7 @@ Records post-hoc corrections to canonical variables. Each entry documents what c
 | P16 | 2026-07-29 | CH | `CP_fever_last_2_weeks` (per-dataset label harmonization 1=Yes/0=No) + 9 datasets recovered from unmapped/mis-mapped `ML1`/`CA6AA`/`PCA6` | ✅ | ✅ | `MICS-CH/src/patch_fever.py` |
 | P17 | 2026-07-30 | CH | `CP_cough_last_2_weeks` (per-dataset label harmonization 1=Yes/0=No) + 5 datasets recovered from unmapped `CI6`/`CA7`/`CA5` | ✅ | ✅ | `MICS-CH/src/patch_cough.py` |
 | P18 | 2026-07-30 | WM | `CP_first_birth_year` (Gregorian CE; CMC-derived + Buddhist/Bikram-Sambat calendar conversion); coverage 116→190 | ✅ | ✅ | `MICS-WM/src/patch_first_birth_year.py` |
+| P19 | 2026-07-30 | WM | `CP_age_at_first_birth` (+`_estimated`) derived from CMC diff (calendar-agnostic) with year-method fallback; 167 datasets | ✅ | ✅ | `MICS-WM/src/patch_age_at_first_birth.py` |
 
 ---
 
@@ -889,3 +890,55 @@ Snapshot `wm_merged.parquet.bak_p18`.
 
 `MICS-WM/src/patch_first_birth_year.py` — `_compute()` (CMC-derive + calendar
 convert), `patch_parquet()` + `patch_db()` + `--verify`.
+
+---
+
+## P19 — Derive `CP_age_at_first_birth` (+ `_estimated`)
+
+**Module:** WM (`final_WM_MICS`, `ind_que_WM_MICS`, `wm_merged.parquet`)
+
+### Motivation
+
+No clean "age at first birth" variable existed — only ~5 datasets surveyed it
+directly (`agefb`/`wafb`/`CM1A`/`TTWM32`); it is otherwise a derived quantity.
+Requested for fertility analysis.
+
+### Method
+
+`CP_age_at_first_birth` = woman's age in completed years at first live birth,
+valid **10–49**, per row:
+- **A (primary, CMC difference):** `floor((first_child_birth_date_cmc −
+  woman_birth_date_cmc) / 12)`. A difference of two century-month codes is
+  **calendar-agnostic** (any Buddhist-Era / Bikram-Sambat offset cancels) and
+  **month-precise**. 134 datasets.
+- **B (fallback, year method):** `CP_first_birth_year − (interview_year_CE −
+  woman_age)`, `interview_year_CE = 1900 + floor((interview_date_cmc−1)/12)`.
+  Year-level, so ±1 vs A (validated: A vs B agree 68% exact, **100% within 1
+  year**). Uses the already calendar-harmonised CP_first_birth_year (P18). Adds
+  ~33 datasets.
+
+`CP_age_at_first_birth = A if in [10,49] else B if in [10,49] else NULL`.
+`CP_age_at_first_birth_estimated` = 0 if from A (CMC-exact), 1 if from B
+(year-level), NULL if the value is NULL.
+
+Pure per-row function of existing columns (no SAV / alignment_v2.yaml changes,
+no re-insertion). Distribution: p1 13, median 20, p99 34 — as expected.
+
+### Result
+
+- `CP_age_at_first_birth`: **1,221,378** non-null across **167 datasets**
+  (CMC-exact 1,062,761; year-estimated 158,617). Range 10–49.
+
+### DB status: ✅ Done (2026-07-30)
+
+Single `UPDATE` computing both columns; `ind_que_WM_MICS` gains a derived
+provenance row per covered dataset.
+
+### Parquet status: ✅ Done (2026-07-30)
+
+Snapshot `wm_merged.parquet.bak_p19`.
+
+### Code
+
+`MICS-WM/src/patch_age_at_first_birth.py` — `_compute()` (CMC diff + year
+fallback), `patch_parquet()` + `patch_db()` + `--verify`.

@@ -113,7 +113,8 @@ WM: woman_age (15-49), woman_age_group (1-7 = 5yr bands),
     /2 >=weekly /3 ~daily), education_years (+_estimated),
     CP_age_at_first_union (cleaned, valid 8-49; NULL=never-married),
     CP_children_ever_born (cleaned, valid 0-20),
-    CP_first_birth_year (Gregorian CE 1950-2024; CMC-derived + calendar-harmonised)
+    CP_first_birth_year (Gregorian CE 1950-2024; CMC-derived + calendar-harmonised),
+    CP_age_at_first_birth (10-49; CMC-derived, +_estimated flag for year-level)
 HL: education_years (+_estimated)
 CH: child_age_years (0-4), child_age_months (0-59, only ~42 month-coded
     datasets), mother_education_harmonized (0-3 as above),
@@ -286,6 +287,14 @@ HISTORY = [
      "datasets from raw ML1/CA6AA/PCA6 (guarded) -> 167 datasets. Remaining "
      "uncovered genuinely lack a fever-occurrence question. Coverage-aware map "
      "selection avoids silently NULLing multi-source data."),
+    ("P19", "final_WM_MICS", "CP_age_at_first_birth",
+     "No clean age-at-first-birth variable existed (only ~5 datasets surveyed it "
+     "directly); needed for fertility analysis.",
+     "Derived CP_age_at_first_birth (10-49): primarily floor((first_child_"
+     "birth_date_cmc - woman_birth_date_cmc)/12) (calendar-agnostic, month-"
+     "precise), else CP_first_birth_year-(interview_year-woman_age); "
+     "CP_age_at_first_birth_estimated flags the year-level fallback. "
+     "1,221,378 rows / 167 datasets."),
     ("P18", "final_WM_MICS", "CP_first_birth_year",
      "first_birth_year covered only 116 datasets, with sentinels (9997/8/9) and "
      "NON-Gregorian calendars (Thailand Buddhist Era +543, Nepal Bikram Sambat "
@@ -328,6 +337,8 @@ CURATED: dict[tuple[str, str], str] = {
     ("final_WM_MICS", "CP_children_ever_born"): "Children ever born, cleaned: valid 0-20 only (99/>20 nulled). ~223 datasets. Cross-variable inconsistencies intentionally kept. (P13)",
     ("final_WM_MICS", "first_birth_year"): "Year of woman's first birth, RAW: only ~116 datasets; sentinels 9997/8/9; NON-Gregorian calendars (Thailand Buddhist Era +543, Nepal Bikram Sambat +57) and a 2-digit dataset. Use CP_first_birth_year. (P18)",
     ("final_WM_MICS", "CP_first_birth_year"): "Year of first birth, Gregorian CE, cleaned & calendar-harmonised: derived from first_child_birth_date_cmc where valid (calendar-agnostic), else the year field converted (Thai -543 / Nepal -57 / 2-digit pivot); valid 1950-2024. ~191 datasets. (P18)",
+    ("final_WM_MICS", "CP_age_at_first_birth"): "Woman's age (completed years) at first live birth, DERIVED, valid 10-49: primarily floor((first_child_birth_date_cmc - woman_birth_date_cmc)/12) (calendar-agnostic, month-precise), else CP_first_birth_year-(interview_year-woman_age). ~167 datasets. See CP_age_at_first_birth_estimated. (P19)",
+    ("final_WM_MICS", "CP_age_at_first_birth_estimated"): "0 = CP_age_at_first_birth is CMC-exact, 1 = year-level approximation (fallback), NULL = value is NULL. (P19)",
     # HL
     ("final_HL_MICS", "relationship_to_head"): "Relationship to household head; 1 = head. Head is roster line 1 by MICS design.",
     ("final_HL_MICS", "sex"): "1 = male, 2 = female.",
