@@ -31,6 +31,7 @@ Records post-hoc corrections to canonical variables. Each entry documents what c
 | P18 | 2026-07-30 | WM | `CP_first_birth_year` (Gregorian CE; CMC-derived + Buddhist/Bikram-Sambat calendar conversion); coverage 116→190 | ✅ | ✅ | `MICS-WM/src/patch_first_birth_year.py` |
 | P19 | 2026-07-30 | WM | `CP_age_at_first_birth` (+`_estimated`) derived from CMC diff (calendar-agnostic) with year-method fallback; 167 datasets | ✅ | ✅ | `MICS-WM/src/patch_age_at_first_birth.py` |
 | P20 | 2026-07-30 | WM | `CP_place_of_delivery` (harmonized 5-category via value labels) + 34 datasets recovered from unmapped `MN18`/`MN20`/`MN8`/`NN3` | ✅ | ✅ | `MICS-WM/src/patch_place_of_delivery.py` |
+| P21 | 2026-07-31 | CH | `CP_child_sample_weight` (scale-harmonized: outlier datasets normalized to mean 1) + 30 datasets recovered from unmapped `chweight` | ✅ | ✅ | `MICS-CH/src/patch_child_sample_weight.py` |
 
 ---
 
@@ -1008,4 +1009,60 @@ Snapshot `wm_merged.parquet.bak_p20`.
 
 `MICS-WM/src/patch_place_of_delivery.py` — 5-category multilingual label
 classifier; `RECOVER` map + guarded `_recover()`; `patch_parquet()` +
+`patch_yaml()` + `patch_db()` + `--verify`.
+
+---
+
+## P21 — `CP_child_sample_weight` (scale harmonization) + 30-dataset recovery
+
+**Module:** CH (`final_CH_MICS`, `ind_que_CH_MICS`, `ch_merged.parquet`, `alignment_v2.yaml`)
+
+### Problem
+
+1. **Scale inconsistency.** 131/134 covered datasets store a normalised child
+   weight (mean ≈ 1 within the survey — the MICS standard), but three store
+   un-normalised expansion weights: Thailand 2005-06 (mean 514), Costa Rica MICS6
+   (98.5), Panama MICS5 (60.9). Pooling them un-normalised would weight those
+   surveys' cases 60–500×.
+2. **Alignment gap.** 51 uncovered datasets have a raw `chweight`/`CHWEIGHT`
+   ("child sample weight" / "pondération enfant" / "ponderador de niños") column
+   that was never mapped (found by reviewing raw metadata; the household/women
+   weights `HHWEIGHT`/`WMWEIGHT` and body-weight `POIDS`/`AN1` columns were
+   excluded).
+
+### Fix
+
+`CP_child_sample_weight = child_sample_weight / (dataset mean if that mean > 5
+else 1)` — normalises each dataset to mean 1 for poolable cross-country use;
+already-normalised datasets are unchanged; weight 0 (excluded case) is kept.
+
+**Recovered 30 of 51** datasets by mapping raw `chweight` → `child_sample_weight`
+(added to `alignment_v2.yaml`, backup `.bak_p21`) and backfilling base
+positionally (guarded `household_number == HH2`/`CHHHNO` = 100%). 21 skipped —
+mostly MICS2/2000 datasets whose SAV has no usable household key or 0% positional
+match (and Rwanda/Suriname 2000 with no CH SAV at the raw path). The recovery
+surfaced 3 further un-normalised datasets (Indonesia MICS2 mean 4949, Venezuela
+2000 1235, Senegal 2000 146), which the mean>5 rule normalised automatically —
+so 6 datasets total are normalised.
+
+### Result
+
+- `CP_child_sample_weight`: **1,104,528** non-null across **164 datasets** (was
+  134; +30 recovered), overall mean ≈ 1 (poolable). Raw column unchanged except
+  the additive recovery backfill.
+
+### DB status: ✅ Done (2026-07-31)
+
+`UPDATE CP_ = base`, then divide the 3 non-recovered outliers by their mean; the
+30 recovered datasets delete + re-inserted in one batch from patched parquet;
+`ind_que_CH_MICS` gained the recovered base rows and mirrored `CP_` rows.
+
+### Parquet status: ✅ Done (2026-07-31)
+
+Snapshot `ch_merged.parquet.bak_p21`.
+
+### Code
+
+`MICS-CH/src/patch_child_sample_weight.py` — `_divisors()` (per-dataset
+normalisation), `RECOVER` map + guarded `_recover()`, `patch_parquet()` +
 `patch_yaml()` + `patch_db()` + `--verify`.

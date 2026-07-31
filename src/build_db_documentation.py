@@ -123,7 +123,8 @@ CH: child_age_years (0-4), child_age_months (0-59, only ~42 month-coded
     CP_bmi_for_age_zscore (cleaned |z|<=6 + WHO-2006 derived where missing;
     see CP_bmi_for_age_zscore_derived; WHO prefers WHZ for <5y),
     CP_diarrhea_last_2_weeks / CP_fever_last_2_weeks / CP_cough_last_2_weeks
-    (harmonized 1=Yes/0=No; per-dataset label mapping)
+    (harmonized 1=Yes/0=No; per-dataset label mapping),
+    CP_child_sample_weight (normalized to mean 1 per dataset; for pooling)
 HH: sex_of_household_head (1/2, cleaned)
 
 Full change history: _data_issues (status='fixed', patch_id P01-P10) and
@@ -288,6 +289,14 @@ HISTORY = [
      "datasets from raw ML1/CA6AA/PCA6 (guarded) -> 167 datasets. Remaining "
      "uncovered genuinely lack a fever-occurrence question. Coverage-aware map "
      "selection avoids silently NULLing multi-source data."),
+    ("P21", "final_CH_MICS", "CP_child_sample_weight",
+     "child_sample_weight had a scale inconsistency (a few datasets store "
+     "un-normalised expansion weights, mean 60-5000, vs mean~1 elsewhere) and was "
+     "unmapped for 51 datasets that have a raw chweight column.",
+     "Added CP_child_sample_weight normalised to mean 1 within each dataset (only "
+     "the un-normalised outlier datasets, mean>5, divided by their mean; others "
+     "unchanged; weight 0 kept). Recovered 30 datasets from raw chweight (guarded); "
+     "21 skipped (no usable household key). 1,104,528 rows / 164 datasets."),
     ("P20", "final_WM_MICS", "CP_place_of_delivery",
      "place_of_delivery uses country-specific numeric codes and was mapped for "
      "only 176 datasets; Philippines 1999 was mis-mapped to 'who decided the "
@@ -366,6 +375,8 @@ CURATED: dict[tuple[str, str], str] = {
     ("final_CH_MICS", "bmi_for_age_zscore"): "BMI-for-age z-score (WHO), RAW/MICS-provided: keeps sentinel 999.99 and implausible values. Use CP_bmi_for_age_zscore. NB WHO prefers weight_for_height_zscore for under-5. (P14)",
     ("final_CH_MICS", "CP_bmi_for_age_zscore"): "BMI-for-age z-score, cleaned to |z|<=6, PLUS derived (WHO 2006 from weight/height/age/sex) for 33 fully-missing datasets that passed a data-quality gate. ~1.17M rows / 178 datasets. See CP_bmi_for_age_zscore_derived. (P14)",
     ("final_CH_MICS", "CP_bmi_for_age_zscore_derived"): "1 = CP_bmi_for_age_zscore was derived here (WHO 2006), 0 = MICS-provided, NULL = CP_ is NULL. ~187k derived. (P14)",
+    ("final_CH_MICS", "child_sample_weight"): "Child sample weight, RAW: 131 datasets normalised (mean~1) but Thailand/Costa Rica/Panama store un-normalised expansion weights. Use CP_child_sample_weight for pooling. (P21 recovered 51 datasets)",
+    ("final_CH_MICS", "CP_child_sample_weight"): "Child sample weight, scale-harmonised for pooling: normalised to mean 1 within each dataset (only the un-normalised outlier datasets divided by their mean; others unchanged). 0 = excluded case. (P21)",
     ("final_CH_MICS", "diarrhea_last_2_weeks"): "Had diarrhoea in last 2 weeks, RAW: coding varies across datasets (1/2, 0/1, 0/100, Iraq/Yemen 2=yes-without-blood). Use CP_diarrhea_last_2_weeks. (P15 fixed Congo_MICS5 source CA2->CA1)",
     ("final_CH_MICS", "CP_diarrhea_last_2_weeks"): "Diarrhoea in last 2 weeks, harmonized: 1=Yes, 0=No, NULL=DK/missing/unknown. Per-dataset label-driven mapping (handles 2=yes-without-blood, 0/100). (P15)",
     ("final_CH_MICS", "fever_last_2_weeks"): "Had fever in last 2 weeks, RAW: coding varies across datasets (1/2, 0/100, sentinels). Use CP_fever_last_2_weeks. (P16)",
@@ -403,7 +414,7 @@ CP_COLUMNS: dict[str, list[str]] = {
         "mother_education_harmonized", "child_age_months", "child_age_years",
         "mother_education_years", "mother_education_years_estimated",
         "bmi_for_age_zscore", "diarrhea_last_2_weeks", "fever_last_2_weeks",
-        "cough_last_2_weeks",
+        "cough_last_2_weeks", "child_sample_weight",
     ],
     "final_HH_MICS": ["sex_of_household_head"],
 }
