@@ -32,6 +32,7 @@ Records post-hoc corrections to canonical variables. Each entry documents what c
 | P19 | 2026-07-30 | WM | `CP_age_at_first_birth` (+`_estimated`) derived from CMC diff (calendar-agnostic) with year-method fallback; 167 datasets | ✅ | ✅ | `MICS-WM/src/patch_age_at_first_birth.py` |
 | P20 | 2026-07-30 | WM | `CP_place_of_delivery` (harmonized 5-category via value labels) + 34 datasets recovered from unmapped `MN18`/`MN20`/`MN8`/`NN3` | ✅ | ✅ | `MICS-WM/src/patch_place_of_delivery.py` |
 | P21 | 2026-07-31 | CH | `CP_child_sample_weight` (scale-harmonized: outlier datasets normalized to mean 1) + 30 datasets recovered from unmapped `chweight` | ✅ | ✅ | `MICS-CH/src/patch_child_sample_weight.py` |
+| P22 | 2026-08-01 | WM | `CP_received_anc` (harmonized binary 1/0) + `CP_received_anc_derived`; 10 datasets recovered from unmapped `MN1`/`MN2`, 58 MICS2/MICS3-era datasets derived from the `MN2` provider checklist; coverage 158→221 | ✅ | ✅ | `MICS-WM/src/patch_received_anc.py`, `scan_received_anc.py` |
 
 ---
 
@@ -1066,3 +1067,91 @@ Snapshot `ch_merged.parquet.bak_p21`.
 `MICS-CH/src/patch_child_sample_weight.py` — `_divisors()` (per-dataset
 normalisation), `RECOVER` map + guarded `_recover()`, `patch_parquet()` +
 `patch_yaml()` + `patch_db()` + `--verify`.
+
+---
+
+## P22 — `CP_received_anc` (harmonized binary) + provider-checklist derivation
+
+**Date:** 2026-08-01 · **Module:** WM · **Columns:** `CP_received_anc`,
+`CP_received_anc_derived`
+
+### Problem
+
+1. **Count contamination.** `received_anc` was aligned to BOTH the yes/no ANC
+   question (`MN1` in MICS4/5, `MN2` in MICS6) AND the visit-count (`MN3`/`MN5`)
+   in most datasets, so the binary was polluted with visit counts (values 3–16).
+2. **Mis-mapped datasets.** In 5 datasets the yes/no column was absent and a
+   count/timing column won the merge (`MN2A2` no-of-times, `F9` months-when-first,
+   `MN2AA`/`MN2AB`, ...).
+3. **Apparent "missing" that was really a different question format.** Only 158
+   datasets had any value. The MICS2/MICS3 rounds (mostly 2000–2006) never asked a
+   single "did you receive ANC?" question — they used a **provider checklist**
+   ("whom did you see for antenatal care?": doctor / nurse / midwife / TBA / ... /
+   no one). That checklist *is* the ANC question for those rounds and matches
+   UNICEF's ANC-coverage indicator, so those datasets were recoverable, not empty.
+
+### Investigation
+
+Per-dataset value-label review split the 251 datasets into: **153** with a verified
+yes/no column (code 1 = Yes in every one, no exceptions); **10** with an unmapped
+direct `MN1`/`MN2` yes/no question (Algeria MICS6, Argentina/Costa Rica/Uruguay
+MICS4, Congo/Mali/Mexico/Panama/Dominican-Rep MICS5, Suriname 2000); **77** with
+only a provider checklist; **11** with genuinely no ANC question in the WM module.
+
+The provider checklist appears in three raw coding schemes, all handled by a
+row-level classifier keyed on each column's *role* (provider vs "no one", fixed by
+MICS naming `MN2[YZ]` / label) and each cell's value label:
+- MICS2 numeric (Senegal): `0`=Non, `k`=provider-code, `7`=Missing;
+- MICS4-6 string (Ghana/Thailand): `''`=not-selected, `'A'..'Y'`=letter, `'?'`=Missing;
+- yes/no grid (Zambia): `1`=Yes / `2`=No per provider column.
+Two datasets (Mozambique 2008, Zimbabwe) store letter checkboxes with **no value
+labels at all** — handled by treating any non-empty non-`?` cell in a provider
+column as selected.
+
+### Validation (derivation gate)
+
+On the **150** clean yes/no datasets that also carry an `MN2` checklist (347,388
+overlap rows), the checklist derivation reproduces the self-reported yes/no answer
+at **median 100 %, mean 99.5 %** agreement — confirming the derived construct
+equals the direct question. (The one low case, Malawi 2006 at 0.245, is itself a
+count-contaminated base and is re-derived here.)
+
+### Fix
+
+`CP_received_anc` = 1 received / 0 not received / NULL. `CP_received_anc_derived`
+= 0 self-reported, 1 checklist-derived. Harmonized 153 clean datasets (base
+1→1 / 2→0, nulling sentinels 9/98/99 and any leaked count); recovered 10 direct
+`MN1`/`MN2`; derived 58 checklist datasets. Recovery reads the raw SAV and aligns
+positionally, **guarded** `hh_number == {HH2, WM2, WIHHNO, HI2, ...}` = 100 %
+(older MICS2 files name the household id `WIHHNO`/`HI2`, not `HH2`). New mappings
+written to `alignment_v2.yaml` (backup `.bak_p22`).
+
+### Result
+
+- `CP_received_anc`: **557,131** non-null across **221 datasets** (was 158) —
+  163 self-reported + 58 derived; values strictly {0,1}, out-of-range = 0.
+- **19 skipped**: 3 have no WM SAV (DR Congo 2001, Gambia 2000, Guyana 2000);
+  Kyrgyzstan / Vietnam / Sao Tome MICS5 and 13 MICS2/2000 datasets (Senegal, Chad,
+  CAR, Côte d'Ivoire, ...) whose parquet `hh_number` matches no raw household
+  column (0 %), so positional alignment can't be verified — left NULL to avoid
+  mis-alignment.
+- **11 genuinely never collected ANC** in the WM module (Cuba 2006/MICS4, Guinea
+  Bissau MICS5/6, Indonesia MICS2, Moldova MICS2, Myanmar 2000, Sao Tome MICS6 ×2,
+  Sudan N/S 2000) — reported, left NULL.
+
+### DB status: ✅ Done (2026-08-01)
+
+`UPDATE CP_ = base` for the 153 harmonized datasets; the 68 recovered datasets
+delete + re-inserted from patched parquet; `ind_que_WM_MICS` gained recovered base
+rows and mirrored `CP_` rows (363 rows).
+
+### Parquet status: ✅ Done (2026-08-01)
+
+Snapshot `wm_merged.parquet.bak_p22`.
+
+### Code
+
+`MICS-WM/src/patch_received_anc.py` — `_cell()`/`_is_none_col()`/`_derive()`
+(role-based checklist classifier), `_recover_one()` (multi-key guard), DIRECT/
+FAMILY/NONE_NO_ANC lists, `--validate` gate, `patch_parquet/yaml/db` + `--verify`.
+`MICS-WM/src/scan_received_anc.py` — read-only recovery-method classifier.

@@ -115,7 +115,9 @@ WM: woman_age (15-49), woman_age_group (1-7 = 5yr bands),
     CP_children_ever_born (cleaned, valid 0-20),
     CP_first_birth_year (Gregorian CE 1950-2024; CMC-derived + calendar-harmonised),
     CP_age_at_first_birth (10-49; CMC-derived, +_estimated flag for year-level),
-    CP_place_of_delivery (1 Home/2 Public/3 Private/4 Other facility/5 Other)
+    CP_place_of_delivery (1 Home/2 Public/3 Private/4 Other facility/5 Other),
+    CP_received_anc (1 received /0 not; +CP_received_anc_derived: 0 self-report
+    /1 derived from MN2 provider checklist)
 HL: education_years (+_estimated)
 CH: child_age_years (0-4), child_age_months (0-59, only ~42 month-coded
     datasets), mother_education_harmonized (0-3 as above),
@@ -215,6 +217,19 @@ CATALOG = [
 # ---------------------------------------------------------------------------
 
 HISTORY = [
+    ("P22", "final_WM_MICS", "CP_received_anc",
+     "received_anc was aligned to BOTH the yes/no ANC question (MN1/MN2) AND the "
+     "visit-count (MN3/MN5), contaminating the binary with counts; 5 datasets had "
+     "only a count/timing column mapped; and 88 datasets (mostly MICS2/MICS3-era) "
+     "looked 'missing' but had asked ANC via a provider checklist, not a single "
+     "yes/no question.",
+     "Added CP_received_anc (1 received / 0 not / NULL): harmonized 153 clean "
+     "yes/no datasets; recovered 10 with an unmapped MN1/MN2 question; DERIVED 58 "
+     "MICS2/MICS3-era datasets from the MN2 provider checklist (any provider=1, "
+     "no one=0 — validated to reproduce the yes/no answer at median 100%/mean "
+     "99.5% on 150 overlap datasets); CP_received_anc_derived flags the source. "
+     "Coverage 158 -> 221 datasets / 557,131 rows. 19 skipped (no SAV or "
+     "unverifiable household key); 11 genuinely never collected ANC in WM."),
     ("P01", "final_WM_MICS", "woman_age",
      "woman_age mixed actual age (15-49) with 5-year age-group codes (1-7) across datasets.",
      "Split into woman_age (actual) + woman_age_group (1-7); groups derived from age where absent."),
@@ -357,7 +372,9 @@ CURATED: dict[tuple[str, str], str] = {
     ("final_WM_MICS", "CP_first_birth_year"): "Year of first birth, Gregorian CE, cleaned & calendar-harmonised: derived from first_child_birth_date_cmc where valid (calendar-agnostic), else the year field converted (Thai -543 / Nepal -57 / 2-digit pivot); valid 1950-2024. ~191 datasets. (P18)",
     ("final_WM_MICS", "CP_age_at_first_birth"): "Woman's age (completed years) at first live birth, DERIVED, valid 10-49: primarily floor((first_child_birth_date_cmc - woman_birth_date_cmc)/12) (calendar-agnostic, month-precise), else CP_first_birth_year-(interview_year-woman_age). ~167 datasets. See CP_age_at_first_birth_estimated. (P19)",
     ("final_WM_MICS", "CP_age_at_first_birth_estimated"): "0 = CP_age_at_first_birth is CMC-exact, 1 = year-level approximation (fallback), NULL = value is NULL. (P19)",
-    ("final_WM_MICS", "place_of_delivery"): "Place of delivery, RAW: MICS/DHS scheme with country-specific numeric codes (1x home, 2x public, 3x private, ...). Use CP_place_of_delivery. (P20)",
+    ("final_WM_MICS", "received_anc"): "Received antenatal care, RAW: aligned to BOTH the yes/no question (MN1/MN2) AND the visit-count (MN3/MN5) in most datasets, so values are contaminated by counts; some datasets hold a count/timing column instead. Use CP_received_anc. (P22)",
+    ("final_WM_MICS", "CP_received_anc"): "Received antenatal care during last pregnancy, harmonized binary: 1=received / 0=not received / NULL=missing. 163 datasets from the direct yes/no question (MN1/MN2); 58 MICS2/MICS3-era datasets DERIVED from the provider checklist ('whom did you see for ANC': any provider=1, no one=0) — matches UNICEF's ANC-coverage definition. See CP_received_anc_derived. (P22)",
+    ("final_WM_MICS", "CP_received_anc_derived"): "Provenance flag for CP_received_anc: 0 = self-reported yes/no question; 1 = derived from the MN2 provider checklist (MICS2/MICS3-era datasets that never asked a single yes/no ANC question); NULL where CP_received_anc is NULL. (P22)",
     ("final_WM_MICS", "CP_place_of_delivery"): "Place of delivery, harmonized 5-category (per-dataset value-label mapping): 1=Home, 2=Public facility, 3=Private facility, 4=Other facility (NGO/faith/UNRWA/sector-unknown), 5=Other/en route; NULL=DK/missing. (P20)",
     # HL
     ("final_HL_MICS", "relationship_to_head"): "Relationship to household head; 1 = head. Head is roster line 1 by MICS design.",
@@ -404,7 +421,7 @@ CP_COLUMNS: dict[str, list[str]] = {
         "media_newspaper_frequency_harmonized", "education_grade",
         "education_grade_completed", "education_years", "education_years_estimated",
         "age_at_first_union", "children_ever_born", "first_birth_year",
-        "place_of_delivery",
+        "place_of_delivery", "received_anc",
     ],
     "final_HL_MICS": [
         "highest_grade_completed", "ever_completed_grade",
