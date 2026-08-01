@@ -33,6 +33,7 @@ Records post-hoc corrections to canonical variables. Each entry documents what c
 | P20 | 2026-07-30 | WM | `CP_place_of_delivery` (harmonized 5-category via value labels) + 34 datasets recovered from unmapped `MN18`/`MN20`/`MN8`/`NN3` | ✅ | ✅ | `MICS-WM/src/patch_place_of_delivery.py` |
 | P21 | 2026-07-31 | CH | `CP_child_sample_weight` (scale-harmonized: outlier datasets normalized to mean 1) + 30 datasets recovered from unmapped `chweight` | ✅ | ✅ | `MICS-CH/src/patch_child_sample_weight.py` |
 | P22 | 2026-08-01 | WM | `CP_received_anc` (harmonized binary 1/0) + `CP_received_anc_derived`; 10 datasets recovered from unmapped `MN1`/`MN2`, 58 MICS2/MICS3-era datasets derived from the `MN2` provider checklist; coverage 158→221 | ✅ | ✅ | `MICS-WM/src/patch_received_anc.py`, `scan_received_anc.py` |
+| P23 | 2026-08-01 | WM | `CP_first_trimester_anc` (1 = first ANC ≤3 months/≤13 weeks) + `CP_first_trimester_anc_derived`; derived from first-visit timing, 41 datasets recovered from unmapped `MN2AN`/`MN2AAN`/`MN4AN`/… ; coverage 74→115 | ✅ | ✅ | `MICS-WM/src/patch_first_trimester_anc.py` |
 
 ---
 
@@ -1155,3 +1156,65 @@ Snapshot `wm_merged.parquet.bak_p22`.
 (role-based checklist classifier), `_recover_one()` (multi-key guard), DIRECT/
 FAMILY/NONE_NO_ANC lists, `--validate` gate, `patch_parquet/yaml/db` + `--verify`.
 `MICS-WM/src/scan_received_anc.py` — read-only recovery-method classifier.
+
+---
+
+## P23 — `CP_first_trimester_anc` (first-trimester ANC) + timing recovery
+
+**Date:** 2026-08-01 · **Module:** WM · **Columns:** `CP_first_trimester_anc`,
+`CP_first_trimester_anc_derived`
+
+### Problem
+
+There was no first-trimester-ANC indicator. The underlying "how many weeks or
+months pregnant were you at the first antenatal visit?" question was aligned
+(split into `anc_first_visit_timing_number` + `anc_first_visit_timing_unit`,
+unit 1=weeks / 2=months) for only **74** datasets — but reviewing the raw
+metadata of the datasets that lacked it showed ~44 more had asked the same
+question under an unmapped column: MICS5 `MN2AN`/`MN2AU` and `MN2AAN`/`MN2AAU`,
+MICS6 `MN4AN`/`MN4AU` and `MN4N`/`MN4U`, and single month/week columns
+(`MN2AA`, `MN3C`, `MN2B1`, `MN2A_CS`). Several false leads were excluded:
+Kazakhstan `CM12G2` (prior pregnancy), Moldova/Palestine folic-acid items, BiH
+`CM12I*` (per-birth pregnancy duration), South Sudan `SB3U` (time since sex),
+Algeria `MN5A` (number of visits, not timing).
+
+### Fix
+
+`CP_first_trimester_anc` = 1 if the first ANC visit was in the first trimester
+(**≤3 completed months** or **≤13 weeks**), 0 if later, NULL if missing.
+Plausible ranges months 1–9 / weeks 1–42; sentinels 0/98/99 and unit 9 → NULL.
+`CP_first_trimester_anc_derived` = 0 (from the mapped timing number+unit) / 1
+(recovered from a raw timing column). For number-only columns the unit is fixed
+from the column label (months vs weeks); Madagascar (South) `MN2A_CS` is treated
+as months per its label ("âge en mois"), ignoring the mismatched `MN11BU`.
+
+Recovery reads the raw SAV and aligns positionally, **guarded**
+`hh_number == {HH2, WM2, WIHHNO, HI2, ...}` = 100 % (Unicode NFC/NFD tolerant so
+"Côte d'Ivoire" resolves). New mappings written to `alignment_v2.yaml`
+(backup `.bak_p23`).
+
+### Result
+
+- `CP_first_trimester_anc`: **277,613** non-null across **115 datasets** (was 74;
+  +41 recovered); values strictly {0,1}, out-of-range = 0; overall first-trimester
+  rate 0.59. Per-dataset rate 0.16–0.98, none degenerate (confirms recovered
+  columns are timing, not visit counts).
+- **3 skipped**: Côte d'Ivoire MICS5 (raw SAV not at the expected path), Dominican
+  Republic MICS6 and Sao Tome MICS5 (parquet `hh_number` matches no raw household
+  key, 0 %) — left NULL to avoid mis-alignment.
+
+### DB status: ✅ Done (2026-08-01)
+
+`UPDATE CP_ = derive(number,unit)` for the 74 mapped datasets; the 41 recovered
+datasets delete + re-inserted from patched parquet; `ind_que_WM_MICS` gained
+recovered timing rows and mirrored `CP_` rows (115).
+
+### Parquet status: ✅ Done (2026-08-01)
+
+Snapshot `wm_merged.parquet.bak_p23`.
+
+### Code
+
+`MICS-WM/src/patch_first_trimester_anc.py` — `_ft()` (trimester cutoff),
+`RECOVER` map (44 datasets), `_recover_one()` (multi-key guard, NFC-tolerant),
+`patch_parquet/yaml/db` + `--verify`.

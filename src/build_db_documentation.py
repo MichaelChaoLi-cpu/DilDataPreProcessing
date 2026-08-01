@@ -117,7 +117,9 @@ WM: woman_age (15-49), woman_age_group (1-7 = 5yr bands),
     CP_age_at_first_birth (10-49; CMC-derived, +_estimated flag for year-level),
     CP_place_of_delivery (1 Home/2 Public/3 Private/4 Other facility/5 Other),
     CP_received_anc (1 received /0 not; +CP_received_anc_derived: 0 self-report
-    /1 derived from MN2 provider checklist)
+    /1 derived from MN2 provider checklist),
+    CP_first_trimester_anc (1 first ANC <=3 months/<=13 weeks /0 later;
+    +CP_first_trimester_anc_derived: 0 mapped /1 recovered)
 HL: education_years (+_estimated)
 CH: child_age_years (0-4), child_age_months (0-59, only ~42 month-coded
     datasets), mother_education_harmonized (0-3 as above),
@@ -217,6 +219,17 @@ CATALOG = [
 # ---------------------------------------------------------------------------
 
 HISTORY = [
+    ("P23", "final_WM_MICS", "CP_first_trimester_anc",
+     "No first-trimester-ANC indicator existed; the 'weeks/months pregnant at first "
+     "ANC visit' timing was mapped for only 74 datasets, and ~44 more had the raw "
+     "timing question (MN2AN/MN2AU, MN2AAN/MN2AAU, MN4AN/MN4AU, single month/week "
+     "columns) unmapped.",
+     "Derived CP_first_trimester_anc (1 = first ANC <=3 months / <=13 weeks, 0 = "
+     "later, NULL): from the mapped timing number+unit for 74 datasets, plus 41 "
+     "recovered from unmapped raw timing columns (guarded positional backfill). "
+     "CP_first_trimester_anc_derived flags mapped(0) vs recovered(1). 277,613 rows "
+     "/ 115 datasets; overall first-trimester rate 0.59. 3 skipped (no SAV / "
+     "unverifiable key)."),
     ("P22", "final_WM_MICS", "CP_received_anc",
      "received_anc was aligned to BOTH the yes/no ANC question (MN1/MN2) AND the "
      "visit-count (MN3/MN5), contaminating the binary with counts; 5 datasets had "
@@ -372,6 +385,8 @@ CURATED: dict[tuple[str, str], str] = {
     ("final_WM_MICS", "CP_first_birth_year"): "Year of first birth, Gregorian CE, cleaned & calendar-harmonised: derived from first_child_birth_date_cmc where valid (calendar-agnostic), else the year field converted (Thai -543 / Nepal -57 / 2-digit pivot); valid 1950-2024. ~191 datasets. (P18)",
     ("final_WM_MICS", "CP_age_at_first_birth"): "Woman's age (completed years) at first live birth, DERIVED, valid 10-49: primarily floor((first_child_birth_date_cmc - woman_birth_date_cmc)/12) (calendar-agnostic, month-precise), else CP_first_birth_year-(interview_year-woman_age). ~167 datasets. See CP_age_at_first_birth_estimated. (P19)",
     ("final_WM_MICS", "CP_age_at_first_birth_estimated"): "0 = CP_age_at_first_birth is CMC-exact, 1 = year-level approximation (fallback), NULL = value is NULL. (P19)",
+    ("final_WM_MICS", "CP_first_trimester_anc"): "First-trimester ANC: 1 = first antenatal-care visit in the first trimester (<=3 months / <=13 weeks pregnant), 0 = later, NULL = no timing / missing. Derived from the 'weeks or months pregnant at first ANC visit' question (anc_first_visit_timing_number + _unit). 115 datasets (74 mapped + 41 recovered from unmapped MN2AN/MN4AN/... via CP_first_trimester_anc_derived). (P23)",
+    ("final_WM_MICS", "CP_first_trimester_anc_derived"): "Provenance flag for CP_first_trimester_anc: 0 = from the already-mapped anc_first_visit_timing_number/_unit; 1 = recovered from an unmapped raw first-visit timing column; NULL where CP_first_trimester_anc is NULL. (P23)",
     ("final_WM_MICS", "received_anc"): "Received antenatal care, RAW: aligned to BOTH the yes/no question (MN1/MN2) AND the visit-count (MN3/MN5) in most datasets, so values are contaminated by counts; some datasets hold a count/timing column instead. Use CP_received_anc. (P22)",
     ("final_WM_MICS", "CP_received_anc"): "Received antenatal care during last pregnancy, harmonized binary: 1=received / 0=not received / NULL=missing. 163 datasets from the direct yes/no question (MN1/MN2); 58 MICS2/MICS3-era datasets DERIVED from the provider checklist ('whom did you see for ANC': any provider=1, no one=0) — matches UNICEF's ANC-coverage definition. See CP_received_anc_derived. (P22)",
     ("final_WM_MICS", "CP_received_anc_derived"): "Provenance flag for CP_received_anc: 0 = self-reported yes/no question; 1 = derived from the MN2 provider checklist (MICS2/MICS3-era datasets that never asked a single yes/no ANC question); NULL where CP_received_anc is NULL. (P22)",
