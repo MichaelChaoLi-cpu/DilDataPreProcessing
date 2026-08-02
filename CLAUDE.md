@@ -71,3 +71,11 @@ if a later patch revises the `CP_` copy).
   re-insert patch-derived rows (see `sync_p09_to_db.py` for the pattern).
 - Before fixing anything reported in `_data_issues`, mark it `confirmed`; after
   fixing, set `status='fixed'`, `resolution`, `patch_id`, `resolved_at`.
+
+## Resume the ongoing CP_ patch conversation
+
+`claude --resume b55bcf13-76c2-4512-92dd-9d300626240c` (run from this repo root)
+picks up the Claude Code session doing the CP_ careful-process patch series. Latest
+patches: P22 `CP_received_anc`, P23 `CP_first_trimester_anc`, P24 `CP_area_type`
+(1 Urban / 2 Rural / 3 Refugee-camp, all 4 tables). See `DATA_PATCH_LOG.md` for the
+full P01– history. Commit each patch with **no `Co-Authored-By` line**.
