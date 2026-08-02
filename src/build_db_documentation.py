@@ -120,6 +120,8 @@ WM: woman_age (15-49), woman_age_group (1-7 = 5yr bands),
     /1 derived from MN2 provider checklist),
     CP_first_trimester_anc (1 first ANC <=3 months/<=13 weeks /0 later;
     +CP_first_trimester_anc_derived: 0 mapped /1 recovered)
+All tables: CP_area_type (1 Urban /2 Rural /3 Refugee-camp) — harmonized area of
+    residence; use instead of raw `area` (HH6). Camp = State of Palestine only.
 HL: education_years (+_estimated)
 CH: child_age_years (0-4), child_age_months (0-59, only ~42 month-coded
     datasets), mother_education_harmonized (0-3 as above),
@@ -219,6 +221,19 @@ CATALOG = [
 # ---------------------------------------------------------------------------
 
 HISTORY = [
+    ("P24", "final_HH_MICS", "CP_area_type",
+     "The raw `area` (HH6 area of residence) is not comparable across surveys: "
+     "codes/labels differ (usually 1=urban/2=rural, Zambia reversed), many surveys "
+     "use >2 categories needing collapse (Mongolia capital/aimag/soum centre, Lao "
+     "rural-with/without-road, city-name strata, peri-urban, slum), and `area` was "
+     "mis-aligned to a region/cluster column in ~26 datasets.",
+     "Added CP_area_type (1 Urban / 2 Rural / 3 Refugee-camp / NULL) in all four "
+     "tables via per-dataset value-label classification: urban incl. city/capital/"
+     "centre/metro/municipal/slum; rural incl. village/interior/coastal/tribal/"
+     "peri-urban; camp = the 3 State-of-Palestine surveys (HH6=Camp). Region-only "
+     "codings (Egypt sub-national) -> NULL. Contaminated/unaligned datasets "
+     "recovered from HH6 in the HH SAV (guarded); member tables filled from HH via "
+     "the household join. HH 241 / WM 225 / CH 229 / HL 213 datasets."),
     ("P23", "final_WM_MICS", "CP_first_trimester_anc",
      "No first-trimester-ANC indicator existed; the 'weeks/months pregnant at first "
      "ANC visit' timing was mapped for only 74 datasets, and ~44 more had the raw "
@@ -386,6 +401,14 @@ CURATED: dict[tuple[str, str], str] = {
     ("final_WM_MICS", "CP_age_at_first_birth"): "Woman's age (completed years) at first live birth, DERIVED, valid 10-49: primarily floor((first_child_birth_date_cmc - woman_birth_date_cmc)/12) (calendar-agnostic, month-precise), else CP_first_birth_year-(interview_year-woman_age). ~167 datasets. See CP_age_at_first_birth_estimated. (P19)",
     ("final_WM_MICS", "CP_age_at_first_birth_estimated"): "0 = CP_age_at_first_birth is CMC-exact, 1 = year-level approximation (fallback), NULL = value is NULL. (P19)",
     ("final_WM_MICS", "CP_first_trimester_anc"): "First-trimester ANC: 1 = first antenatal-care visit in the first trimester (<=3 months / <=13 weeks pregnant), 0 = later, NULL = no timing / missing. Derived from the 'weeks or months pregnant at first ANC visit' question (anc_first_visit_timing_number + _unit). 115 datasets (74 mapped + 41 recovered from unmapped MN2AN/MN4AN/... via CP_first_trimester_anc_derived). (P23)",
+    ("final_HH_MICS", "CP_area_type"): "Harmonized area of residence: 1=Urban, 2=Rural, 3=Refugee-camp, NULL. Cross-survey comparable (raw `area`/HH6 is not — codes/labels differ, some surveys use >2 collapsed categories, some were mis-aligned to a region column). Urban incl. city/capital/centre/metro/municipal/slum; rural incl. village/interior/coastal/tribal/peri-urban; camp = State-of-Palestine surveys only. (P24)",
+    ("final_WM_MICS", "CP_area_type"): "Harmonized area of residence: 1=Urban, 2=Rural, 3=Refugee-camp, NULL (household's value, from final_HH_MICS). Use instead of raw `area`. (P24)",
+    ("final_CH_MICS", "CP_area_type"): "Harmonized area of residence: 1=Urban, 2=Rural, 3=Refugee-camp, NULL (household's value, from final_HH_MICS). Use instead of raw `area`. (P24)",
+    ("final_HL_MICS", "CP_area_type"): "Harmonized area of residence: 1=Urban, 2=Rural, 3=Refugee-camp, NULL (household's value, from final_HH_MICS). Use instead of raw `area`. (P24)",
+    ("final_HH_MICS", "area"): "Area of residence, RAW (HH6): country-specific codes/labels, not cross-survey comparable (some >2 categories, some mis-aligned to region). Use CP_area_type. (P24)",
+    ("final_WM_MICS", "area"): "Area of residence, RAW (HH6): not cross-survey comparable. Use CP_area_type. (P24)",
+    ("final_CH_MICS", "area"): "Area of residence, RAW (HH6): not cross-survey comparable. Use CP_area_type. (P24)",
+    ("final_HL_MICS", "area"): "Area of residence, RAW (HH6): not cross-survey comparable. Use CP_area_type. (P24)",
     ("final_WM_MICS", "CP_first_trimester_anc_derived"): "Provenance flag for CP_first_trimester_anc: 0 = from the already-mapped anc_first_visit_timing_number/_unit; 1 = recovered from an unmapped raw first-visit timing column; NULL where CP_first_trimester_anc is NULL. (P23)",
     ("final_WM_MICS", "received_anc"): "Received antenatal care, RAW: aligned to BOTH the yes/no question (MN1/MN2) AND the visit-count (MN3/MN5) in most datasets, so values are contaminated by counts; some datasets hold a count/timing column instead. Use CP_received_anc. (P22)",
     ("final_WM_MICS", "CP_received_anc"): "Received antenatal care during last pregnancy, harmonized binary: 1=received / 0=not received / NULL=missing. 163 datasets from the direct yes/no question (MN1/MN2); 58 MICS2/MICS3-era datasets DERIVED from the provider checklist ('whom did you see for ANC': any provider=1, no one=0) — matches UNICEF's ANC-coverage definition. See CP_received_anc_derived. (P22)",

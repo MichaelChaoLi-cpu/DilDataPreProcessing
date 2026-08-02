@@ -34,6 +34,7 @@ Records post-hoc corrections to canonical variables. Each entry documents what c
 | P21 | 2026-07-31 | CH | `CP_child_sample_weight` (scale-harmonized: outlier datasets normalized to mean 1) + 30 datasets recovered from unmapped `chweight` | ✅ | ✅ | `MICS-CH/src/patch_child_sample_weight.py` |
 | P22 | 2026-08-01 | WM | `CP_received_anc` (harmonized binary 1/0) + `CP_received_anc_derived`; 10 datasets recovered from unmapped `MN1`/`MN2`, 58 MICS2/MICS3-era datasets derived from the `MN2` provider checklist; coverage 158→221 | ✅ | ✅ | `MICS-WM/src/patch_received_anc.py`, `scan_received_anc.py` |
 | P23 | 2026-08-01 | WM | `CP_first_trimester_anc` (1 = first ANC ≤3 months/≤13 weeks) + `CP_first_trimester_anc_derived`; derived from first-visit timing, 41 datasets recovered from unmapped `MN2AN`/`MN2AAN`/`MN4AN`/… ; coverage 74→115 | ✅ | ✅ | `MICS-WM/src/patch_first_trimester_anc.py` |
+| P24 | 2026-08-02 | HH+WM+CH+HL | `CP_area_type` (1 Urban / 2 Rural / 3 Refugee-camp) — harmonized area of residence in all 4 tables via per-dataset value-label classification; contaminated/unaligned datasets recovered from HH6 (guarded), members filled via household join; HH 241 / WM 225 / CH 229 / HL 213 | ✅ | ✅ | `src/patch_area_type.py` |
 
 ---
 
@@ -1218,3 +1219,69 @@ Snapshot `wm_merged.parquet.bak_p23`.
 `MICS-WM/src/patch_first_trimester_anc.py` — `_ft()` (trimester cutoff),
 `RECOVER` map (44 datasets), `_recover_one()` (multi-key guard, NFC-tolerant),
 `patch_parquet/yaml/db` + `--verify`.
+
+---
+
+## P24 — `CP_area_type` (harmonized urban / rural / refugee-camp), all 4 tables
+
+**Date:** 2026-08-02 · **Modules:** HH + WM + CH + HL · **Column:** `CP_area_type`
+
+### Problem
+
+The raw `area` (HH6 "Area of residence") is not comparable across surveys:
+- coding differs — usually 1=urban / 2=rural, but **Zambia 1999 is reversed**, so
+  the value **label** is authoritative, not the code;
+- **>2 categories** in ~31 surveys that must collapse: Mongolia capital / aimag
+  centre / soum centre → urban; Lao "rural with/without road" → rural; Suriname
+  coastal / interior → rural; Bangladesh municipality / metro / slum → urban,
+  tribal → rural; city-name strata (Ouagadougou, Kigali, Antananarivo) → urban;
+  peri-urban → rural; Egypt sub-national is a pure **region** coding (no urban/rural);
+- `area` was **mis-aligned** to a region / cluster column in ~26 datasets, so the
+  base is contaminated with region codes (10–95) that are not HH6.
+
+Only three surveys carry a genuine refugee-**camp** category: **State of Palestine
+MICS4 / MICS5 / MICS6** (HH6 = Camp). Kenya (Mombasa) HH6=Slum is urban-informal,
+not a camp.
+
+### Fix
+
+`CP_area_type` = **1 Urban / 2 Rural / 3 Refugee-camp / NULL**, in all four tables.
+Per user: slum → Urban, **peri-urban → Rural**, refugee camp → 3, region-only /
+"Other" → NULL. A multilingual (EN/FR/ES/PT) classifier maps each HH6 value label
+to a category; a per-dataset {raw code → category} map is applied to each table's
+own `area` column.
+
+- **HH (source of truth):** direct-map the base; where the base is contaminated or
+  `area` was never aligned, **recover HH6 from the HH SAV** (guarded positional,
+  `hh_number == {HH2 / WIHHNO / HI2 / …}` = 100 %).
+- **WM / CH / HL:** direct-map each table's own `area`, then fill still-NULL rows
+  from HH via the household join (`dataset_name + cluster_number + household id`) —
+  fast, no per-module SAV reads.
+
+Datasets with no HH6 labels but base values in {1,2} default to 1=urban / 2=rural.
+
+### Result
+
+- `CP_area_type` valid / datasets: **HH 2,483,904 / 241**, WM 2,681,169 / 225,
+  CH 1,542,315 / 229, HL 10,959,375 / 213. Values strictly {1,2,3}, out-of-range 0.
+- Refugee-camp (3): the 3 State-of-Palestine surveys (HH 4,390 / WM 4,876 /
+  CH 3,152 / HL 23,067 rows).
+- HH skipped 8 datasets (broken household key / no SAV / no HH6): Albania MICS2,
+  Argentina MICS4 & MICS6, Gambia 2000, Sao Tome MICS5 & MICS6 ×2, Senegal (Dakar).
+
+### DB status: ✅ Done (2026-08-02)
+
+Per table: `ADD COLUMN CP_area_type SMALLINT`; direct-mapped datasets updated via a
+`(dataset, area code) → category` temp-table join; recovered / join-filled datasets
+delete + re-inserted from patched parquet. `ind_que_*` mirror the `area` rows to
+`CP_area_type`.
+
+### Parquet status: ✅ Done (2026-08-02)
+
+Snapshots `*.parquet.bak_p24` in all four modules.
+
+### Code
+
+`src/patch_area_type.py` — `_cat()` (label classifier), `build_maps()` (HH6 labels
+from SAV), `_direct_map()`, `_recover_hh6()` (guarded SAV recovery), `process_table()`
+(HH SAV-recover / member HH-join), `sync_db()`, `--verify`.
