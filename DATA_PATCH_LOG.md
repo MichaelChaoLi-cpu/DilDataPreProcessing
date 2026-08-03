@@ -35,6 +35,7 @@ Records post-hoc corrections to canonical variables. Each entry documents what c
 | P22 | 2026-08-01 | WM | `CP_received_anc` (harmonized binary 1/0) + `CP_received_anc_derived`; 10 datasets recovered from unmapped `MN1`/`MN2`, 58 MICS2/MICS3-era datasets derived from the `MN2` provider checklist; coverage 158→221 | ✅ | ✅ | `MICS-WM/src/patch_received_anc.py`, `scan_received_anc.py` |
 | P23 | 2026-08-01 | WM | `CP_first_trimester_anc` (1 = first ANC ≤3 months/≤13 weeks) + `CP_first_trimester_anc_derived`; derived from first-visit timing, 41 datasets recovered from unmapped `MN2AN`/`MN2AAN`/`MN4AN`/… ; coverage 74→115 | ✅ | ✅ | `MICS-WM/src/patch_first_trimester_anc.py` |
 | P24 | 2026-08-02 | HH+WM+CH+HL | `CP_area_type` (1 Urban / 2 Rural / 3 Refugee-camp) — harmonized area of residence in all 4 tables via per-dataset value-label classification; contaminated/unaligned datasets recovered from HH6 (guarded), members filled via household join; HH 241 / WM 225 / CH 229 / HL 213 | ✅ | ✅ | `src/patch_area_type.py` |
+| P25 | 2026-08-02 | HH+WM+CH+HL | `CP_survey_year` + `CP_survey_month` — Gregorian interview year/month in all 4 tables; Thailand Buddhist-Era (−543) and Nepal Bikram-Sambat (embedded BS calendar) converted; cmc cross-check year 100 %/month 99.9 %; HH 242 / WM 244 / CH 243 / HL 210 | ✅ | ✅ | `src/patch_survey_date.py` |
 
 ---
 
@@ -1285,3 +1286,70 @@ Snapshots `*.parquet.bak_p24` in all four modules.
 `src/patch_area_type.py` — `_cat()` (label classifier), `build_maps()` (HH6 labels
 from SAV), `_direct_map()`, `_recover_hh6()` (guarded SAV recovery), `process_table()`
 (HH SAV-recover / member HH-join), `sync_db()`, `--verify`.
+
+---
+
+## P25 — `CP_survey_year` + `CP_survey_month` (Gregorian interview date), all 4 tables
+
+**Date:** 2026-08-02 · **Modules:** HH + WM + CH + HL · **Columns:** `CP_survey_year`,
+`CP_survey_month`
+
+### Problem
+
+No harmonized interview year/month existed. Raw `interview_year` / `interview_month`
+carry sentinels (9999 / 99 / 0) and, for two countries, non-Gregorian calendars:
+- **Thailand** — `interview_year` is **Buddhist Era** (e.g. 2549, 2562); Gregorian
+  = year − 543. The month is unchanged (BE months == Gregorian months). Note the
+  cmc is BE in Thailand 2005-06 but Gregorian in Thailand MICS6, so cmc is *not* a
+  safe source there — `interview_year − 543` is.
+- **Nepal** — `interview_year` / `month` / `day` are **Bikram Sambat** (e.g. 2071,
+  2076); both the year and the month differ from Gregorian (BS new year ≈ mid-April).
+
+### Investigation / validation
+
+For all non-Thai/Nepal rows the cmc-derived date already matches `interview_year` /
+`interview_month` (**year 100 %, month 99.93 %** over 2.05 M WM rows), so the raw
+fields are Gregorian and reliable. Thailand −543 reproduces the known fieldwork
+(2005-06 → 2005/2006, MICS6 → 2019). Nepal BS→Gregorian was validated to land every
+interview in the correct Gregorian year (MICS5 → 2014, MICS6 → 2019) with a
+contiguous, plausible month spread.
+
+### Fix
+
+`CP_survey_year` (Gregorian, valid **1998–2025**) and `CP_survey_month` (1–12):
+- normal datasets — cleaned `interview_year` / `interview_month`; WM fills 7
+  cmc-only datasets (Gambia 2005-06, Mongolia MICS4 ×3, Palestinians in Lebanon,
+  Trinidad 2006, Viet Nam 2000) from `interview_date_cmc`;
+- **Thailand** — `interview_year − 543`, month unchanged;
+- **Nepal** — `interview_year/month/day` converted BS→Gregorian with an **embedded
+  BS calendar** (month lengths for BS 2070–2078 + the Gregorian date of Baishakh 1
+  per year, so a month-length error can never compound across years).
+
+Each table uses its **own** interview date (household / woman / child interviews
+occur on different days) — no cross-table propagation. Sentinels → NULL.
+
+### Result
+
+- `CP_survey_year` valid / datasets: HH 2,681,514 / 242, WM 2,853,155 / 244,
+  CH 1,643,683 / 243, HL 10,829,280 / 210.
+- `CP_survey_month` valid: HH 2,695,006, WM 2,853,167, CH 1,669,977, HL 11,140,759
+  (slightly more than year — a sentinel year can coexist with a valid month).
+- Out-of-range = 0 in all tables; parquet == DB.
+
+### DB status: ✅ Done (2026-08-02)
+
+Per table: `ADD COLUMN CP_survey_year/month SMALLINT`; non-special datasets updated
+via a `(dataset, interview_year, interview_month) → (year, month)` temp-table join;
+special datasets (Nepal — depends on day; WM cmc-only — no year field) delete +
+re-inserted from patched parquet. `ind_que_*` mirror interview_year → CP_survey_year
+and interview_month → CP_survey_month.
+
+### Parquet status: ✅ Done (2026-08-02)
+
+Snapshots `*.parquet.bak_p25` in all four modules.
+
+### Code
+
+`src/patch_survey_date.py` — `_bs_to_ad()` (embedded BS calendar), `derive()`
+(per-table calendar logic), `process_table()` / `sync_db()` (temp-LUT + special
+reinsert), `--validate` (cmc cross-check), `--verify`.

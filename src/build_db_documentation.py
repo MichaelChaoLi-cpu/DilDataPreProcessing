@@ -122,6 +122,9 @@ WM: woman_age (15-49), woman_age_group (1-7 = 5yr bands),
     +CP_first_trimester_anc_derived: 0 mapped /1 recovered)
 All tables: CP_area_type (1 Urban /2 Rural /3 Refugee-camp) — harmonized area of
     residence; use instead of raw `area` (HH6). Camp = State of Palestine only.
+All tables: CP_survey_year / CP_survey_month — Gregorian interview year/month
+    (Thailand Buddhist-Era and Nepal Bikram-Sambat converted); use instead of raw
+    interview_year / interview_month.
 HL: education_years (+_estimated)
 CH: child_age_years (0-4), child_age_months (0-59, only ~42 month-coded
     datasets), mother_education_harmonized (0-3 as above),
@@ -221,6 +224,16 @@ CATALOG = [
 # ---------------------------------------------------------------------------
 
 HISTORY = [
+    ("P25", "final_WM_MICS", "CP_survey_year",
+     "No harmonized interview year/month existed: `interview_year`/`interview_month` "
+     "carry sentinels (9999/99/0) and two non-Gregorian calendars — Thailand "
+     "(Buddhist Era, year+543) and Nepal (Bikram Sambat, different year AND month).",
+     "Added CP_survey_year + CP_survey_month (Gregorian) in all 4 tables. Normal "
+     "datasets use interview_year/month (verified == cmc-derived: year 100%, month "
+     "99.9%); Thailand = year-543 (month unchanged); Nepal converted BS->Gregorian "
+     "via an embedded BS calendar (month lengths + per-year anchor). WM fills 7 "
+     "cmc-only datasets from interview_date_cmc. Clean range year 1998-2025, month "
+     "1-12. HH 242 / WM 244 / CH 243 / HL 210 datasets, out-of-range 0."),
     ("P24", "final_HH_MICS", "CP_area_type",
      "The raw `area` (HH6 area of residence) is not comparable across surveys: "
      "codes/labels differ (usually 1=urban/2=rural, Zambia reversed), many surveys "
@@ -401,6 +414,14 @@ CURATED: dict[tuple[str, str], str] = {
     ("final_WM_MICS", "CP_age_at_first_birth"): "Woman's age (completed years) at first live birth, DERIVED, valid 10-49: primarily floor((first_child_birth_date_cmc - woman_birth_date_cmc)/12) (calendar-agnostic, month-precise), else CP_first_birth_year-(interview_year-woman_age). ~167 datasets. See CP_age_at_first_birth_estimated. (P19)",
     ("final_WM_MICS", "CP_age_at_first_birth_estimated"): "0 = CP_age_at_first_birth is CMC-exact, 1 = year-level approximation (fallback), NULL = value is NULL. (P19)",
     ("final_WM_MICS", "CP_first_trimester_anc"): "First-trimester ANC: 1 = first antenatal-care visit in the first trimester (<=3 months / <=13 weeks pregnant), 0 = later, NULL = no timing / missing. Derived from the 'weeks or months pregnant at first ANC visit' question (anc_first_visit_timing_number + _unit). 115 datasets (74 mapped + 41 recovered from unmapped MN2AN/MN4AN/... via CP_first_trimester_anc_derived). (P23)",
+    ("final_HH_MICS", "CP_survey_year"): "Interview (survey) year, Gregorian: cleaned interview_year with Thailand Buddhist-Era (−543) and Nepal Bikram-Sambat converted to Gregorian; sentinels 9999/0 → NULL; valid 1998–2025. Each table uses its own interview date. (P25)",
+    ("final_HH_MICS", "CP_survey_month"): "Interview (survey) month 1–12, Gregorian (Thailand month unchanged; Nepal BS→Gregorian); sentinel 99 → NULL. (P25)",
+    ("final_WM_MICS", "CP_survey_year"): "Interview (survey) year, Gregorian: cleaned interview_year / interview_date_cmc with Thailand (−543) and Nepal (BS→Gregorian) conversion; valid 1998–2025. (P25)",
+    ("final_WM_MICS", "CP_survey_month"): "Interview (survey) month 1–12, Gregorian. (P25)",
+    ("final_CH_MICS", "CP_survey_year"): "Interview (survey) year, Gregorian (see final_HH_MICS.CP_survey_year). (P25)",
+    ("final_CH_MICS", "CP_survey_month"): "Interview (survey) month 1–12, Gregorian. (P25)",
+    ("final_HL_MICS", "CP_survey_year"): "Interview (survey) year, Gregorian (see final_HH_MICS.CP_survey_year). (P25)",
+    ("final_HL_MICS", "CP_survey_month"): "Interview (survey) month 1–12, Gregorian. (P25)",
     ("final_HH_MICS", "CP_area_type"): "Harmonized area of residence: 1=Urban, 2=Rural, 3=Refugee-camp, NULL. Cross-survey comparable (raw `area`/HH6 is not — codes/labels differ, some surveys use >2 collapsed categories, some were mis-aligned to a region column). Urban incl. city/capital/centre/metro/municipal/slum; rural incl. village/interior/coastal/tribal/peri-urban; camp = State-of-Palestine surveys only. (P24)",
     ("final_WM_MICS", "CP_area_type"): "Harmonized area of residence: 1=Urban, 2=Rural, 3=Refugee-camp, NULL (household's value, from final_HH_MICS). Use instead of raw `area`. (P24)",
     ("final_CH_MICS", "CP_area_type"): "Harmonized area of residence: 1=Urban, 2=Rural, 3=Refugee-camp, NULL (household's value, from final_HH_MICS). Use instead of raw `area`. (P24)",
