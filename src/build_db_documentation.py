@@ -115,6 +115,9 @@ WM: woman_age (15-49), woman_age_group (1-7 = 5yr bands),
     CP_children_ever_born (cleaned, valid 0-20),
     CP_first_birth_year (Gregorian CE 1950-2024; CMC-derived + calendar-harmonised),
     CP_age_at_first_birth (10-49; CMC-derived, +_estimated flag for year-level),
+    CP_woman_age (real age 10-64; raw where real else HL-recovered — raw woman_age
+    is the 5-yr GROUP code for 153 datasets), CP_woman_birth_year (Gregorian
+    1940-2010; +CP_woman_birth_year_estimated 0 exact /1 age-derived),
     CP_place_of_delivery (1 Home/2 Public/3 Private/4 Other facility/5 Other),
     CP_received_anc (1 received /0 not; +CP_received_anc_derived: 0 self-report
     /1 derived from MN2 provider checklist),
@@ -224,6 +227,19 @@ CATALOG = [
 # ---------------------------------------------------------------------------
 
 HISTORY = [
+    ("P26", "final_WM_MICS", "CP_woman_birth_year",
+     "woman_age (and its P11 copy CP_woman_age) was contaminated: 153 datasets "
+     "stored the 5-year age-GROUP code (1-7), not the real age (identical to "
+     "woman_age_group); only 86 held the real 15-49 age. And no woman birth year "
+     "existed.",
+     "Recovered the real age from the household listing (HL join on dataset/cluster/"
+     "household/line) and rebuilt CP_woman_age = real age (raw where real, else HL); "
+     "216 datasets (31 group-code datasets have no WM line number so stay NULL). "
+     "Derived CP_woman_birth_year (Gregorian 1940-2010): exact from woman_birth_date_"
+     "cmc / woman_birth_year for Gregorian datasets (est=0), else CP_survey_year - "
+     "CP_woman_age (est=1, ±1yr) for Nepal/Thailand/gaps; a plausibility guard "
+     "(implied age 12-60) drops contaminated birth-year fields. 245 datasets; "
+     "CP_woman_birth_year_estimated flags the source."),
     ("P25", "final_WM_MICS", "CP_survey_year",
      "No harmonized interview year/month existed: `interview_year`/`interview_month` "
      "carry sentinels (9999/99/0) and two non-Gregorian calendars — Thailand "
@@ -414,6 +430,10 @@ CURATED: dict[tuple[str, str], str] = {
     ("final_WM_MICS", "CP_age_at_first_birth"): "Woman's age (completed years) at first live birth, DERIVED, valid 10-49: primarily floor((first_child_birth_date_cmc - woman_birth_date_cmc)/12) (calendar-agnostic, month-precise), else CP_first_birth_year-(interview_year-woman_age). ~167 datasets. See CP_age_at_first_birth_estimated. (P19)",
     ("final_WM_MICS", "CP_age_at_first_birth_estimated"): "0 = CP_age_at_first_birth is CMC-exact, 1 = year-level approximation (fallback), NULL = value is NULL. (P19)",
     ("final_WM_MICS", "CP_first_trimester_anc"): "First-trimester ANC: 1 = first antenatal-care visit in the first trimester (<=3 months / <=13 weeks pregnant), 0 = later, NULL = no timing / missing. Derived from the 'weeks or months pregnant at first ANC visit' question (anc_first_visit_timing_number + _unit). 115 datasets (74 mapped + 41 recovered from unmapped MN2AN/MN4AN/... via CP_first_trimester_anc_derived). (P23)",
+    ("final_WM_MICS", "woman_age"): "Woman's age, RAW: for 153 datasets this holds the 5-YEAR AGE-GROUP code (1-7), NOT the real age (identical to woman_age_group); only 86 hold real 15-49. Use CP_woman_age. (P26)",
+    ("final_WM_MICS", "CP_woman_age"): "Woman's real age in years (10-64): raw woman_age where it is genuinely 15-49, else recovered from the household-listing age (HL join). NULL for 31 group-code datasets with no WM line number to join on (their age band is in CP_woman_age_group). (P26)",
+    ("final_WM_MICS", "CP_woman_birth_year"): "Woman's birth year, Gregorian (1940-2010). Exact from woman_birth_date_cmc / woman_birth_year where those are Gregorian (CP_woman_birth_year_estimated=0); else CP_survey_year - CP_woman_age (=1, ±1yr) for Nepal (Bikram Sambat), Thailand (Buddhist Era) and datasets lacking a Gregorian birth field. A plausibility guard drops birth years implying age <12 or >60. (P26)",
+    ("final_WM_MICS", "CP_woman_birth_year_estimated"): "Provenance/precision flag for CP_woman_birth_year: 0 = exact (from a birth-date field), 1 = age-derived (survey_year - age, ±1 year); NULL where CP_woman_birth_year is NULL. (P26)",
     ("final_HH_MICS", "CP_survey_year"): "Interview (survey) year, Gregorian: cleaned interview_year with Thailand Buddhist-Era (−543) and Nepal Bikram-Sambat converted to Gregorian; sentinels 9999/0 → NULL; valid 1998–2025. Each table uses its own interview date. (P25)",
     ("final_HH_MICS", "CP_survey_month"): "Interview (survey) month 1–12, Gregorian (Thailand month unchanged; Nepal BS→Gregorian); sentinel 99 → NULL. (P25)",
     ("final_WM_MICS", "CP_survey_year"): "Interview (survey) year, Gregorian: cleaned interview_year / interview_date_cmc with Thailand (−543) and Nepal (BS→Gregorian) conversion; valid 1998–2025. (P25)",
@@ -480,7 +500,7 @@ CP_COLUMNS: dict[str, list[str]] = {
         "media_newspaper_frequency_harmonized", "education_grade",
         "education_grade_completed", "education_years", "education_years_estimated",
         "age_at_first_union", "children_ever_born", "first_birth_year",
-        "place_of_delivery", "received_anc",
+        "place_of_delivery", "received_anc", "woman_birth_year",
     ],
     "final_HL_MICS": [
         "highest_grade_completed", "ever_completed_grade",

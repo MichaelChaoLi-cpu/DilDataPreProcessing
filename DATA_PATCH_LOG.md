@@ -36,6 +36,7 @@ Records post-hoc corrections to canonical variables. Each entry documents what c
 | P23 | 2026-08-01 | WM | `CP_first_trimester_anc` (1 = first ANC ≤3 months/≤13 weeks) + `CP_first_trimester_anc_derived`; derived from first-visit timing, 41 datasets recovered from unmapped `MN2AN`/`MN2AAN`/`MN4AN`/… ; coverage 74→115 | ✅ | ✅ | `MICS-WM/src/patch_first_trimester_anc.py` |
 | P24 | 2026-08-02 | HH+WM+CH+HL | `CP_area_type` (1 Urban / 2 Rural / 3 Refugee-camp) — harmonized area of residence in all 4 tables via per-dataset value-label classification; contaminated/unaligned datasets recovered from HH6 (guarded), members filled via household join; HH 241 / WM 225 / CH 229 / HL 213 | ✅ | ✅ | `src/patch_area_type.py` |
 | P25 | 2026-08-02 | HH+WM+CH+HL | `CP_survey_year` + `CP_survey_month` — Gregorian interview year/month in all 4 tables; Thailand Buddhist-Era (−543) and Nepal Bikram-Sambat (embedded BS calendar) converted; cmc cross-check year 100 %/month 99.9 %; HH 242 / WM 244 / CH 243 / HL 210 | ✅ | ✅ | `src/patch_survey_date.py` |
+| P26 | 2026-08-02 | WM | `CP_woman_age` rebuilt to REAL age (was the 5-yr group code for 153 datasets) via HL-listing join; `CP_woman_birth_year` (+`_estimated`) Gregorian, exact from birth-date else survey_year−age; CP_woman_age 216 ds, CP_woman_birth_year 245 ds | ✅ | ✅ | `MICS-WM/src/patch_woman_birth_year.py` |
 
 ---
 
@@ -1353,3 +1354,79 @@ Snapshots `*.parquet.bak_p25` in all four modules.
 `src/patch_survey_date.py` — `_bs_to_ad()` (embedded BS calendar), `derive()`
 (per-table calendar logic), `process_table()` / `sync_db()` (temp-LUT + special
 reinsert), `--validate` (cmc cross-check), `--verify`.
+
+---
+
+## P26 — `CP_woman_age` (real age) + `CP_woman_birth_year` (WM)
+
+**Date:** 2026-08-02 · **Module:** WM · **Columns:** `CP_woman_age` (rebuilt),
+`CP_woman_birth_year`, `CP_woman_birth_year_estimated`
+
+### Problem
+
+1. `woman_age` — and its P11 copy `CP_woman_age` — is **contaminated**: 153 datasets
+   store the 5-year **age-GROUP code (1–7)**, not the real age (identical to
+   `woman_age_group`); only 86 hold the real 15–49 age. So `CP_woman_age` was
+   misleading (looked like age, was a band code).
+2. No harmonized woman **birth year** existed. `woman_birth_year` (raw) has sentinels
+   (9998/9999/0) and, for Nepal/Thailand, non-Gregorian calendars; `woman_birth_date_
+   cmc` likewise; and some datasets' birth-year field is mis-aligned (Algeria MICS6
+   → median 2008, implying age 11).
+
+### Fix
+
+The **real age** lives in the household listing (HL) — every woman is a household
+member with her actual age (calendar-independent). Joining WM↔HL on
+`(dataset, cluster, household, line)` recovers it.
+
+- **`CP_woman_age`** (10–64) = raw `woman_age` where already real, else the
+  HL-recovered age. **216 datasets.** NULL for 31 group-code datasets whose WM file
+  has **no woman line number** (`line_number` all-NULL) so the HL row can't be
+  identified (their age band remains in `CP_woman_age_group`); the 3 additional
+  broken-key ones are included in that 31.
+- **`CP_woman_birth_year`** (Gregorian 1940–2010), hybrid:
+  * **exact** (`CP_woman_birth_year_estimated=0`) — `woman_birth_date_cmc` → year
+    (primary) or raw `woman_birth_year` (fill), for non-Nepal/Thailand datasets
+    (Gregorian there);
+  * **age-based** (`=1`, ±1 yr) — `CP_survey_year − CP_woman_age`, for Nepal
+    (Bikram Sambat), Thailand (Buddhist Era) and any dataset lacking a Gregorian
+    birth field.
+  A **plausibility guard** nulls any birth year implying a woman age <12 or >60
+  (drops the mis-aligned birth-year fields, e.g. most of Algeria MICS6). **245
+  datasets**; implied age 12–58 (median 29).
+
+### Validation
+
+cmc-derived vs raw `woman_birth_year` agree 88.6 % (cmc preferred as primary);
+age-based vs birth-date agree within-1 year 86 % (age is integer → ±1). Nepal
+(→ born median 1986/1991) and Thailand (→ 1972/1985) land at plausible ages. HL
+age join covers ≥95 % of rows for the recoverable group-code datasets, 100 % for
+Thailand 2005-06 / MICS6 and Nepal.
+
+### Result
+
+- `CP_woman_age`: 2,497,796 rows / **216 datasets** (real age; was 245 datasets of
+  which 153 were group codes). Out-of-range 0.
+- `CP_woman_birth_year`: 2,801,480 rows / **245 datasets** (exact 2,495,469 /
+  age-based 306,011). Out-of-range 0. 6 datasets have no usable source and stay NULL
+  (Thailand_MICS5 & _14_Provinces, Dominican Republic MICS5, Indonesia MICS2,
+  Kyrgyzstan 2005-06, Philippines 1999).
+- Raw `woman_age` unchanged (still the group code where it was).
+
+### DB status: ✅ Done (2026-08-02)
+
+Values are row-level (HL-recovered age, hybrid birth year) and WM row keys have
+~11 % duplicates / 555 k null keys (no reliable update key), so the whole table was
+rebuilt from the patched parquet (`TRUNCATE` + grouped `COPY`, 2,960,835 rows /
+251 datasets preserved). `ind_que_WM_MICS` mirrors `woman_age → CP_woman_age` and
+`woman_birth_year → CP_woman_birth_year` / `_estimated`.
+
+### Parquet status: ✅ Done (2026-08-02)
+
+Snapshot `wm_merged.parquet.bak_p26`.
+
+### Code
+
+`MICS-WM/src/patch_woman_birth_year.py` — `_hl_age_lookup()` (HL join),
+`derive()` (real-age rebuild + hybrid birth year + plausibility guard),
+`sync_db()` (TRUNCATE + grouped COPY), `--verify`.
