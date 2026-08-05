@@ -128,6 +128,10 @@ All tables: CP_area_type (1 Urban /2 Rural /3 Refugee-camp) — harmonized area 
 All tables: CP_survey_year / CP_survey_month — Gregorian interview year/month
     (Thailand Buddhist-Era and Nepal Bikram-Sambat converted); use instead of raw
     interview_year / interview_month.
+All tables: CP_country / CP_country_code (ISO3) — standardised country; CP_subnational
+    / CP_subnational_matched — admin-1 name (state.json-standardised where matched=1,
+    else the raw survey label); CP_district / CP_district_matched — admin-2 name (kept
+    separate from the admin-1 CP_subnational). See the _geo_dict reference table.
 HL: education_years (+_estimated)
 CH: child_age_years (0-4), child_age_months (0-59, only ~42 month-coded
     datasets), mother_education_harmonized (0-3 as above),
@@ -227,6 +231,16 @@ CATALOG = [
 # ---------------------------------------------------------------------------
 
 HISTORY = [
+    ("P27", "final_HH_MICS", "CP_country",
+     "No standardised geography existed: country was only implicit in dataset_name "
+     "(many spellings/subnational surveys) and the subnational unit was an unlabeled "
+     "numeric `region` code.",
+     "Added CP_country / CP_country_code (ISO3) — dataset_name matched to "
+     "data/geolocation/country.json (255/255) — and CP_subnational / "
+     "CP_subnational_matched — the admin-1 code's SAV label (from `region`, else the "
+     "`province` column — some surveys' HH7 landed there) canonicalised to state.json "
+     "admin-1 names (exact/fold/fuzzy≤2), else the raw label kept (matched=0). All 4 "
+     "tables; subnational HH 191 / WM 171 / CH 176 / HL 164 datasets; plus CP_district / CP_district_matched (admin-2, HH 34 ds) kept separate; dictionary in _geo_dict."),
     ("P26", "final_WM_MICS", "CP_woman_birth_year",
      "woman_age (and its P11 copy CP_woman_age) was contaminated: 153 datasets "
      "stored the 5-year age-GROUP code (1-7), not the real age (identical to "
@@ -430,6 +444,30 @@ CURATED: dict[tuple[str, str], str] = {
     ("final_WM_MICS", "CP_age_at_first_birth"): "Woman's age (completed years) at first live birth, DERIVED, valid 10-49: primarily floor((first_child_birth_date_cmc - woman_birth_date_cmc)/12) (calendar-agnostic, month-precise), else CP_first_birth_year-(interview_year-woman_age). ~167 datasets. See CP_age_at_first_birth_estimated. (P19)",
     ("final_WM_MICS", "CP_age_at_first_birth_estimated"): "0 = CP_age_at_first_birth is CMC-exact, 1 = year-level approximation (fallback), NULL = value is NULL. (P19)",
     ("final_WM_MICS", "CP_first_trimester_anc"): "First-trimester ANC: 1 = first antenatal-care visit in the first trimester (<=3 months / <=13 weeks pregnant), 0 = later, NULL = no timing / missing. Derived from the 'weeks or months pregnant at first ANC visit' question (anc_first_visit_timing_number + _unit). 115 datasets (74 mapped + 41 recovered from unmapped MN2AN/MN4AN/... via CP_first_trimester_anc_derived). (P23)",
+    ("final_HH_MICS", "CP_country"): "Country (canonical name, from data/geolocation/country.json), matched from dataset_name. Subnational surveys map to the mother country (e.g. Pakistan (Punjab)→Pakistan); Palestinians-in-Lebanon→Lebanon. (P27)",
+    ("final_HH_MICS", "CP_country_code"): "ISO3 country code for CP_country. (P27)",
+    ("final_HH_MICS", "CP_subnational"): "Admin-1 unit (state/province/region/governorate) NAME. The raw `region` code's SAV label canonicalised to state.json where it matches (CP_subnational_matched=1), else the cleaned raw label (=0). NULL where `region` is unpopulated or unlabeled. Meaningful only within a country; granularity varies by survey. (P27)",
+    ("final_HH_MICS", "CP_subnational_matched"): "1 = CP_subnational matched a state.json admin-1 name (standardised); 0 = raw survey label kept (macro-region / transliteration / re-districting differs); NULL where CP_subnational is NULL. (P27)",
+    ("final_HH_MICS", "CP_district"): "Admin-2 unit (district/arrondissement) NAME, from the `district` code's SAV label; standardised to state.json where it happens to align (small countries whose 'district' IS admin-1, e.g. Lesotho — CP_district_matched=1), else the cleaned raw label (=0). Finer than CP_subnational; kept separate to keep CP_subnational a single admin-1 level. (P27)",
+    ("final_HH_MICS", "CP_district_matched"): "1 = CP_district matched a state.json name; 0 = raw label; NULL where CP_district is NULL. (P27)",
+    ("final_WM_MICS", "CP_district"): "Admin-2 unit name (see final_HH_MICS.CP_district). (P27)",
+    ("final_WM_MICS", "CP_district_matched"): "1 matched / 0 raw label. (P27)",
+    ("final_CH_MICS", "CP_district"): "Admin-2 unit name (see final_HH_MICS.CP_district). (P27)",
+    ("final_CH_MICS", "CP_district_matched"): "1 matched / 0 raw label. (P27)",
+    ("final_HL_MICS", "CP_district"): "Admin-2 unit name (see final_HH_MICS.CP_district). (P27)",
+    ("final_HL_MICS", "CP_district_matched"): "1 matched / 0 raw label. (P27)",
+    ("final_WM_MICS", "CP_country"): "Country canonical name (see final_HH_MICS.CP_country). (P27)",
+    ("final_WM_MICS", "CP_country_code"): "ISO3 country code. (P27)",
+    ("final_WM_MICS", "CP_subnational"): "Admin-1 unit name (see final_HH_MICS.CP_subnational). (P27)",
+    ("final_WM_MICS", "CP_subnational_matched"): "1 matched state.json / 0 raw label (see final_HH_MICS). (P27)",
+    ("final_CH_MICS", "CP_country"): "Country canonical name (see final_HH_MICS.CP_country). (P27)",
+    ("final_CH_MICS", "CP_country_code"): "ISO3 country code. (P27)",
+    ("final_CH_MICS", "CP_subnational"): "Admin-1 unit name (see final_HH_MICS.CP_subnational). (P27)",
+    ("final_CH_MICS", "CP_subnational_matched"): "1 matched / 0 raw label. (P27)",
+    ("final_HL_MICS", "CP_country"): "Country canonical name (see final_HH_MICS.CP_country). (P27)",
+    ("final_HL_MICS", "CP_country_code"): "ISO3 country code. (P27)",
+    ("final_HL_MICS", "CP_subnational"): "Admin-1 unit name (see final_HH_MICS.CP_subnational). (P27)",
+    ("final_HL_MICS", "CP_subnational_matched"): "1 matched / 0 raw label. (P27)",
     ("final_WM_MICS", "woman_age"): "Woman's age, RAW: for 153 datasets this holds the 5-YEAR AGE-GROUP code (1-7), NOT the real age (identical to woman_age_group); only 86 hold real 15-49. Use CP_woman_age. (P26)",
     ("final_WM_MICS", "CP_woman_age"): "Woman's real age in years (10-64): raw woman_age where it is genuinely 15-49, else recovered from the household-listing age (HL join). NULL for 31 group-code datasets with no WM line number to join on (their age band is in CP_woman_age_group). (P26)",
     ("final_WM_MICS", "CP_woman_birth_year"): "Woman's birth year, Gregorian (1940-2010). Exact from woman_birth_date_cmc / woman_birth_year where those are Gregorian (CP_woman_birth_year_estimated=0); else CP_survey_year - CP_woman_age (=1, ±1yr) for Nepal (Bikram Sambat), Thailand (Buddhist Era) and datasets lacking a Gregorian birth field. A plausibility guard drops birth years implying age <12 or >60. (P26)",

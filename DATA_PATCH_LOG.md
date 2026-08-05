@@ -37,6 +37,7 @@ Records post-hoc corrections to canonical variables. Each entry documents what c
 | P24 | 2026-08-02 | HH+WM+CH+HL | `CP_area_type` (1 Urban / 2 Rural / 3 Refugee-camp) — harmonized area of residence in all 4 tables via per-dataset value-label classification; contaminated/unaligned datasets recovered from HH6 (guarded), members filled via household join; HH 241 / WM 225 / CH 229 / HL 213 | ✅ | ✅ | `src/patch_area_type.py` |
 | P25 | 2026-08-02 | HH+WM+CH+HL | `CP_survey_year` + `CP_survey_month` — Gregorian interview year/month in all 4 tables; Thailand Buddhist-Era (−543) and Nepal Bikram-Sambat (embedded BS calendar) converted; cmc cross-check year 100 %/month 99.9 %; HH 242 / WM 244 / CH 243 / HL 210 | ✅ | ✅ | `src/patch_survey_date.py` |
 | P26 | 2026-08-02 | WM | `CP_woman_age` rebuilt to REAL age (was the 5-yr group code for 153 datasets) via HL-listing join; `CP_woman_birth_year` (+`_estimated`) Gregorian, exact from birth-date else survey_year−age; CP_woman_age 216 ds, CP_woman_birth_year 245 ds | ✅ | ✅ | `MICS-WM/src/patch_woman_birth_year.py` |
+| P27 | 2026-08-04 | HH+WM+CH+HL | `CP_country`/`CP_country_code` (ISO3) + `CP_subnational`/`CP_subnational_matched` — dataset→country.json (255/255) & region-code SAV label→state.json admin-1 names (fuzzy≤2, raw fallback); country all rows, subnational 164–191 (region+province admin-1) + CP_district (admin-2, 26–34 ds); dict in `_geo_dict` | ✅ | ✅ | `src/patch_geolocation.py` |
 
 ---
 
@@ -1430,3 +1431,68 @@ Snapshot `wm_merged.parquet.bak_p26`.
 `MICS-WM/src/patch_woman_birth_year.py` — `_hl_age_lookup()` (HL join),
 `derive()` (real-age rebuild + hybrid birth year + plausibility guard),
 `sync_db()` (TRUNCATE + grouped COPY), `--verify`.
+
+---
+
+## P27 — `CP_country` + `CP_subnational` (standardised geography), all 4 tables
+
+**Date:** 2026-08-04 · **Modules:** HH + WM + CH + HL · **Columns:** `CP_country`,
+`CP_country_code`, `CP_subnational`, `CP_subnational_matched` · **Reference table:**
+`_geo_dict`
+
+### Problem
+
+Geography was only implicit: the country lived in `dataset_name` (many spellings,
+plus subnational surveys), and the subnational unit was an **unlabeled numeric
+`region` code** (the state/province/governorate *names* live only in the SAV value
+labels, not in the aligned data). A user-supplied reference was added:
+`data/geolocation/country.json` (ISO3 + canonical country names) and `state.json`
+(3661 canonical admin-1 names across 230 countries).
+
+### Fix
+
+- **`CP_country` / `CP_country_code`** — `dataset_name` → country.json, via accent-
+  folding + an alias table (DRCongo, Lao PDR→Laos, Viet Nam→Vietnam, Swaziland,
+  North Macedonia, São Tomé, Kyrgyz Republic, …). Subnational surveys map to the
+  mother country (Pakistan (Punjab)→Pakistan, Kenya (…County)→Kenya, Egypt
+  (Sub-national)→Egypt, Somalia (Somaliland)→Somalia, Roma-Settlements→base);
+  **Palestinians-in-Lebanon → Lebanon** (geographic residence). **255/255 datasets.**
+- **`CP_subnational` / `CP_subnational_matched`** — each dataset's HH-module SAV
+  value labels give `region code → raw name`; each raw name is canonicalised to the
+  state.json admin-1 name for that country (exact → accent/case-fold → strip
+  region/province words → safe fuzzy, Levenshtein ≤2, **no substring guessing**). If
+  it matches, `matched=1` and the value is the state.json spelling; otherwise the
+  cleaned raw label is kept (`=0`). **~52 % of region codes match** the reference
+  (Nigeria 35/37, Ghana 10/10 vs macro-region/transliteration cases 0 %). Only SAV
+  *metadata* is read (once) to build the map; application maps the existing `region`
+  code column — no per-row SAV reads.
+
+### Result
+
+- `CP_country`/`CP_country_code`: **every row** (HH 255 / WM 251 / CH 251 / HL 228
+  datasets).
+- `CP_subnational`/`_matched`: HH 1,869,486 / **191 ds**, WM 1,669,689 / 171 ds,
+  CH 1,008,339 / 176 ds, HL 7,033,130 / 164 ds. The admin-1 code is read from `region`
+  and, where that is absent, from the `province` column (several surveys' HH7 was
+  aligned into `province`, not `region` — both are admin-1). Coverage is bounded by
+  rows with a populated admin-1 code; datasets whose admin-1 sits only in a
+  `district`/`stratum` column (admin-2 / composite) are left NULL to keep the column
+  a single, comparable admin level. A separate **CP_district / CP_district_matched** (admin-2 — district/arrondissement labels, standardised to state.json only where a small country's 'district' IS admin-1, e.g. Lesotho) adds the finer level for HH 34 / WM 29 / CH 32 / HL 26 datasets without polluting CP_subnational.
+- `_geo_dict`: one row per (dataset, region code) — country, code, region code,
+  subnational name, matched — 2,328 rows. The country-level dictionary.
+
+### DB status: ✅ Done (2026-08-04)
+
+Per table: `ADD COLUMN` (TEXT ×3, SMALLINT); `CP_country` set per dataset and
+`CP_subnational` per `(dataset, region code, province code)` (rounded to 6 dp to dodge float round-trip drift on a contaminated `province` float) via temp-table joins (no reinsert).
+`_geo_dict` built from the map cache. `ind_que_*` mirror `region → CP_subnational`.
+
+### Parquet status: ✅ Done (2026-08-04)
+
+Snapshots `*.parquet.bak_p27` in all four modules. Map cache
+`data/geolocation/_geo_maps_cache.json` (gitignored; rebuild with `--build`).
+
+### Code
+
+`src/patch_geolocation.py` — `build_maps()` (country matcher + region canonicaliser + Levenshtein, from country.json/state.json + SAV metadata; builds both `region` and `province` admin-1 maps), `_apply_cols()` (region→province fallback),
+`sync_db()` (temp-LUT), `--build` / `--verify`.

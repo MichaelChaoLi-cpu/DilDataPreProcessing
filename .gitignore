@@ -18,3 +18,4 @@ wheels/
 
 
 **.parquet
+data/geolocation/_geo_maps_cache.json
