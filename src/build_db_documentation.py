@@ -144,7 +144,7 @@ CH: child_age_years (0-4), child_age_months (0-59, only ~42 month-coded
     (harmonized 1=Yes/0=No; per-dataset label mapping),
     CP_child_sample_weight (normalized to mean 1 per dataset; for pooling),
     CP_ever_breastfed (1=Yes/0=No; 233 datasets, incl. 28 recovered from unmapped
-    non-English labels)
+    non-English labels), CP_still_breastfeeding (1=Yes/0=No; 241 datasets)
 HH: sex_of_household_head (1/2, cleaned)
 
 Full change history: _data_issues (status='fixed', patch_id P01-P10) and
@@ -235,6 +235,13 @@ CATALOG = [
 # ---------------------------------------------------------------------------
 
 HISTORY = [
+    ("P30", "final_CH_MICS", "CP_still_breastfeeding",
+     "still_breastfeeding aligned for 240 datasets; 2 more (DR Congo 2001, "
+     "Kyrgyzstan) had it unmapped in the raw SAV (BF2).",
+     "Added CP_still_breastfeeding (1=Yes/0=No/NULL): harmonized 240 + recovered 1 "
+     "(DR Congo 2001; Kyrgyzstan skipped - broken key). 240->241 datasets; still rate "
+     "0.44. Near ceiling - the other missing datasets never asked it. Consistency "
+     "checked: still=1&ever=0 stays 57 rows (pre-existing raw noise, no new)."),
     ("P29", "final_CH_MICS", "CP_ever_breastfed",
      "ever_breastfed was aligned for 205 datasets; 31 more had the question UNMAPPED "
      "in their raw SAV under a non-English label (French 'L'enfant a été allaité', "
@@ -544,6 +551,8 @@ CURATED: dict[tuple[str, str], str] = {
     ("final_CH_MICS", "CP_cough_last_2_weeks"): "Cough in last 2 weeks, harmonized: 1=Yes, 0=No, NULL=DK/missing/unknown. Per-dataset label mapping; 5 datasets recovered from unmapped raw CI6/CA7/CA5 the alignment had missed. (P17)",
     ("final_CH_MICS", "ever_breastfed"): "Child ever breastfed, RAW (1=Yes/2=No + sentinels). Use CP_ever_breastfed. (P29)",
     ("final_CH_MICS", "CP_ever_breastfed"): "Was the child ever breastfed: 1=Yes, 0=No, NULL=DK/missing. 233 datasets — 205 harmonized + 28 recovered from raw SAV columns (BF1/BD2) the alignment had missed because of non-English labels (French/Spanish/Portuguese). (P29)",
+    ("final_CH_MICS", "still_breastfeeding"): "Child still being breastfed, RAW (1=Yes/2=No + sentinels). Use CP_still_breastfeeding. (P30)",
+    ("final_CH_MICS", "CP_still_breastfeeding"): "Is the child still being breastfed: 1=Yes, 0=No, NULL=DK/missing. 241 datasets (240 harmonized + 1 recovered). By definition applies to children ever breastfed. (P30)",
     ("final_CH_MICS", "mother_caretaker_line_number"): "Roster line of mother/caretaker; join to WM.line_number or HL.line_number.",
     # HH
     ("final_HH_MICS", "sex_of_household_head"): "1 = male, 2 = female, NULL = unknown. Verified & cleaned across all datasets. (P10)",

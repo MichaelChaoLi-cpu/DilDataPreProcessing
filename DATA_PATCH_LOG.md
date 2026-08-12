@@ -40,6 +40,7 @@ Records post-hoc corrections to canonical variables. Each entry documents what c
 | P27 | 2026-08-04 | HH+WM+CH+HL | `CP_country`/`CP_country_code` (ISO3) + `CP_subnational`/`CP_subnational_matched` — dataset→country.json (255/255) & region-code SAV label→state.json admin-1 names (fuzzy≤2, raw fallback); country all rows, subnational 164–191 (region+province admin-1) + CP_district (admin-2, 26–34 ds); dict in `_geo_dict` | ✅ | ✅ | `src/patch_geolocation.py` |
 | P28 | 2026-08-05 | WM | `CP_time_to_breastfeed_hours` + `CP_early_initiation_breastfeeding` (<=1h) + `CP_breastfed_within_24h` — early initiation of breastfeeding; unit by label; 36 datasets recovered from unmapped non-English `MN25/MN37/MN13` pairs; 154→190 | ✅ | ✅ | `MICS-WM/src/patch_breastfeed_initiation.py` |
 | P29 | 2026-08-05 | CH | `CP_ever_breastfed` (1=Yes/0=No) — harmonized 205 + recovered 28 datasets whose ever-breastfed column (BF1/BD2) was unmapped due to non-English labels; 205→233 | ✅ | ✅ | `MICS-CH/src/patch_ever_breastfed.py` |
+| P30 | 2026-08-05 | CH | `CP_still_breastfeeding` (1=Yes/0=No) — harmonized 240 + recovered 1 (DR Congo 2001); 240→241, near ceiling | ✅ | ✅ | `MICS-CH/src/patch_still_breastfeeding.py` |
 
 ---
 
@@ -1576,3 +1577,30 @@ Snapshot `ch_merged.parquet.bak_p29`.
 ### Code
 `MICS-CH/src/patch_ever_breastfed.py` — `_classify()` (label-driven yes/no), `RECOVER`
 (31 columns), `_recover()` (guarded), `--verify`.
+
+---
+
+## P30 — `CP_still_breastfeeding` (CH)
+
+**Date:** 2026-08-05 · **Module:** CH · **Column:** `CP_still_breastfeeding`
+
+### Problem / Fix
+"Is (name) still being breastfed?" was aligned for **240** datasets (uniform 1=Yes/2=No,
+multilingual). 2 more had it unmapped in the raw SAV (DR Congo 2001 `BF2` "Continue
+d'être allaité", Kyrgyzstan `bf2`). Added `CP_still_breastfeeding` (1/0/NULL): harmonized
+the 240 (1->1/2->0, sentinels null) and recovered 1 by guarded positional backfill
+(**Kyrgyzstan skipped — broken household key**).
+
+### Result
+- 1,174,676 rows / **241 datasets**; still-breastfeeding rate 0.44. Near the ceiling —
+  the remaining 9 missing datasets (Burundi 2005, Cameroon 2000, Indonesia/Moldova
+  MICS2, Philippines 1999, Senegal 2000, Uruguay MICS4, Venezuela 2000, Yemen 2006)
+  genuinely never asked it. Consistency: `still=1 & ever=0` stays 57 rows (pre-existing
+  raw-data noise; the recovery added none).
+
+### DB / Parquet: ✅ Done (2026-08-05)
+Mapped updated in place; 1 recovered dataset reinserted; `ind_que` mirrored. Snapshot
+`ch_merged.parquet.bak_p30`.
+
+### Code
+`MICS-CH/src/patch_still_breastfeeding.py`.
