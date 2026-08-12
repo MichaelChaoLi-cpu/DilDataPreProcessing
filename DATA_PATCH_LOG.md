@@ -38,6 +38,7 @@ Records post-hoc corrections to canonical variables. Each entry documents what c
 | P25 | 2026-08-02 | HH+WM+CH+HL | `CP_survey_year` + `CP_survey_month` — Gregorian interview year/month in all 4 tables; Thailand Buddhist-Era (−543) and Nepal Bikram-Sambat (embedded BS calendar) converted; cmc cross-check year 100 %/month 99.9 %; HH 242 / WM 244 / CH 243 / HL 210 | ✅ | ✅ | `src/patch_survey_date.py` |
 | P26 | 2026-08-02 | WM | `CP_woman_age` rebuilt to REAL age (was the 5-yr group code for 153 datasets) via HL-listing join; `CP_woman_birth_year` (+`_estimated`) Gregorian, exact from birth-date else survey_year−age; CP_woman_age 216 ds, CP_woman_birth_year 245 ds | ✅ | ✅ | `MICS-WM/src/patch_woman_birth_year.py` |
 | P27 | 2026-08-04 | HH+WM+CH+HL | `CP_country`/`CP_country_code` (ISO3) + `CP_subnational`/`CP_subnational_matched` — dataset→country.json (255/255) & region-code SAV label→state.json admin-1 names (fuzzy≤2, raw fallback); country all rows, subnational 164–191 (region+province admin-1) + CP_district (admin-2, 26–34 ds); dict in `_geo_dict` | ✅ | ✅ | `src/patch_geolocation.py` |
+| P28 | 2026-08-05 | WM | `CP_time_to_breastfeed_hours` + `CP_early_initiation_breastfeeding` (<=1h) + `CP_breastfed_within_24h` — early initiation of breastfeeding; unit by label; 36 datasets recovered from unmapped non-English `MN25/MN37/MN13` pairs; 154→190 | ✅ | ✅ | `MICS-WM/src/patch_breastfeed_initiation.py` |
 
 ---
 
@@ -1496,3 +1497,45 @@ Snapshots `*.parquet.bak_p27` in all four modules. Map cache
 
 `src/patch_geolocation.py` — `build_maps()` (country matcher + region canonicaliser + Levenshtein, from country.json/state.json + SAV metadata; builds both `region` and `province` admin-1 maps), `_apply_cols()` (region→province fallback),
 `sync_db()` (temp-LUT), `--build` / `--verify`.
+
+---
+
+## P28 — early initiation of breastfeeding (WM)
+
+**Date:** 2026-08-05 · **Module:** WM · **Columns:** `CP_time_to_breastfeed_hours`,
+`CP_early_initiation_breastfeeding`, `CP_breastfed_within_24h`
+
+### Problem
+No early-initiation indicator existed. The "how long after birth was the child first
+put to the breast?" question (number + unit) was aligned for **154** datasets, but the
+unit code means different things across surveys (0/1/2 Immediately/Hours/Days is usual,
+some use 1/2/3, one Minutes). And — the issue the user flagged — **39 more datasets had
+the question UNMAPPED in their raw SAV under a non-English label** ("Enfant mis au sein
+pour la première fois", "Cuánto tiempo después del nacimiento le dio pecho", ...), a
+translation gap.
+
+### Fix
+`CP_time_to_breastfeed_hours` = hours to first breastfeed, with the unit interpreted by
+its **label** (immediately=0 / minutes/60 / hours / days*24), sentinels (98/99/998/999,
+unit=Special/DK, implausible n) -> NULL. `CP_early_initiation_breastfeeding` = 1 if <=1h,
+`CP_breastfed_within_24h` = 1 if <=24h. Recovered **36** unmapped datasets by guarded
+positional backfill of the correct `MN25/MN37/MN13` number+unit pair, **excluding
+look-alikes**: MN26 (time bathed), PN2 (facility stay), PN12 (postnatal check), MN13B
+(breastfeeding duration). Accent-folding fixed 14 French datasets whose "Immédiatement"
+label had been missed.
+
+### Result
+- 459,108 rows / **190 datasets** (154 mapped + 36 recovered); values {0,1}; early-init
+  (<=1h) rate 0.56, within-24h 0.89. Skipped 3 (Côte d'Ivoire MICS5 no SAV on drive,
+  Dominican Rep MICS6 & Kyrgyzstan broken keys). Argentina MICS4 lacks the question.
+
+### DB status: ✅ Done (2026-08-05)
+Mapped datasets updated via a `(dataset, number, unit)` temp-LUT; 36 recovered datasets
+delete + re-inserted from patched parquet; `ind_que` mirrored.
+
+### Parquet status: ✅ Done (2026-08-05)
+Snapshot `wm_merged.parquet.bak_p28`.
+
+### Code
+`MICS-WM/src/patch_breastfeed_initiation.py` — `_utype()`/`_hours()` (label-based unit),
+`RECOVER` (39 pairs), `_recover()` (guarded), `--verify`.

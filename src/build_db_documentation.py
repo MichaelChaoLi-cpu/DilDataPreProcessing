@@ -122,7 +122,9 @@ WM: woman_age (15-49), woman_age_group (1-7 = 5yr bands),
     CP_received_anc (1 received /0 not; +CP_received_anc_derived: 0 self-report
     /1 derived from MN2 provider checklist),
     CP_first_trimester_anc (1 first ANC <=3 months/<=13 weeks /0 later;
-    +CP_first_trimester_anc_derived: 0 mapped /1 recovered)
+    +CP_first_trimester_anc_derived: 0 mapped /1 recovered),
+    CP_early_initiation_breastfeeding (1 first breastfed <=1h /0 later),
+    CP_breastfed_within_24h, CP_time_to_breastfeed_hours (continuous)
 All tables: CP_area_type (1 Urban /2 Rural /3 Refugee-camp) — harmonized area of
     residence; use instead of raw `area` (HH6). Camp = State of Palestine only.
 All tables: CP_survey_year / CP_survey_month — Gregorian interview year/month
@@ -231,6 +233,15 @@ CATALOG = [
 # ---------------------------------------------------------------------------
 
 HISTORY = [
+    ("P28", "final_WM_MICS", "CP_early_initiation_breastfeeding",
+     "No early-initiation-of-breastfeeding indicator existed; the 'time to first "
+     "breastfeed' question (number+unit) was aligned for 154 datasets but 39 more had "
+     "it UNMAPPED under a non-English label (translation gap).",
+     "Derived CP_time_to_breastfeed_hours (unit interpreted by label: immediately/"
+     "minutes/hours/days), CP_early_initiation_breastfeeding (<=1h) and "
+     "CP_breastfed_within_24h. Recovered 36 unmapped datasets (guarded), excluding "
+     "look-alikes (time bathed / facility stay / postnatal / BF duration). "
+     "154->190 datasets; early-init rate 0.56."),
     ("P27", "final_HH_MICS", "CP_country",
      "No standardised geography existed: country was only implicit in dataset_name "
      "(many spellings/subnational surveys) and the subnational unit was an unlabeled "
@@ -468,6 +479,9 @@ CURATED: dict[tuple[str, str], str] = {
     ("final_HL_MICS", "CP_country_code"): "ISO3 country code. (P27)",
     ("final_HL_MICS", "CP_subnational"): "Admin-1 unit name (see final_HH_MICS.CP_subnational). (P27)",
     ("final_HL_MICS", "CP_subnational_matched"): "1 matched / 0 raw label. (P27)",
+    ("final_WM_MICS", "CP_time_to_breastfeed_hours"): "Hours after birth the child was first put to the breast (harmonized): unit read by LABEL (immediately=0 / minutes/60 / hours / days*24). Sentinels & implausible -> NULL. WM, last birth. (P28)",
+    ("final_WM_MICS", "CP_early_initiation_breastfeeding"): "Early initiation of breastfeeding: 1 = first breastfed within 1 hour of birth, 0 = later, NULL = missing. Standard WHO/MICS indicator, from CP_time_to_breastfeed_hours. 190 datasets. (P28)",
+    ("final_WM_MICS", "CP_breastfed_within_24h"): "1 = first breastfed within 24 hours of birth, 0 = later, NULL = missing. (P28)",
     ("final_WM_MICS", "woman_age"): "Woman's age, RAW: for 153 datasets this holds the 5-YEAR AGE-GROUP code (1-7), NOT the real age (identical to woman_age_group); only 86 hold real 15-49. Use CP_woman_age. (P26)",
     ("final_WM_MICS", "CP_woman_age"): "Woman's real age in years (10-64): raw woman_age where it is genuinely 15-49, else recovered from the household-listing age (HL join). NULL for 31 group-code datasets with no WM line number to join on (their age band is in CP_woman_age_group). (P26)",
     ("final_WM_MICS", "CP_woman_birth_year"): "Woman's birth year, Gregorian (1940-2010). Exact from woman_birth_date_cmc / woman_birth_year where those are Gregorian (CP_woman_birth_year_estimated=0); else CP_survey_year - CP_woman_age (=1, ±1yr) for Nepal (Bikram Sambat), Thailand (Buddhist Era) and datasets lacking a Gregorian birth field. A plausibility guard drops birth years implying age <12 or >60. (P26)",
