@@ -135,8 +135,9 @@ All tables: CP_country / CP_country_code (ISO3) — standardised country; CP_sub
     else the raw survey label); CP_district / CP_district_matched — admin-2 name (kept
     separate from the admin-1 CP_subnational). See the _geo_dict reference table.
 HL: education_years (+_estimated)
-CH: child_age_years (0-4), child_age_months (0-59, only ~42 month-coded
-    datasets), mother_education_harmonized (0-3 as above),
+CH: child_age_years (0-4), CP_child_age_months (0-59, 248 datasets — rebuilt from
+    raw CAGE + interview-minus-birth date; raw child_age_months had only ~42),
+    mother_education_harmonized (0-3 as above),
     mother_education_years (+_estimated),
     CP_bmi_for_age_zscore (cleaned |z|<=6 + WHO-2006 derived where missing;
     see CP_bmi_for_age_zscore_derived; WHO prefers WHZ for <5y),
@@ -225,8 +226,9 @@ CATALOG = [
      "Under-5 questionnaire: anthropometry (HAZ/WAZ/WHZ + flags), illness "
      "(diarrhea/fever/cough), vaccination, breastfeeding, early development, "
      "mother's education (harmonized + years).",
-     "child_age_months only in ~42 month-coded datasets; use child_age_years for "
-     "all-dataset work. Anthropometry z-scores need flag==0 or |z|<=6 filtering."),
+     "CP_child_age_months now covers 248 datasets (0-59, rebuilt from raw CAGE + "
+     "date); prefer it over raw child_age_months (~42) and over child_age_years "
+     "where a month value exists. Anthropometry z-scores need flag==0 or |z|<=6 filtering."),
     ("final_NepalLivingStandardardSurvey2022", "NLSS", "Nepal LSS 2022 (separate survey)",
      "not harmonized with MICS tables",
      "ind_que_NepalLivingStandardardSurvey2022",
@@ -239,6 +241,20 @@ CATALOG = [
 # ---------------------------------------------------------------------------
 
 HISTORY = [
+    ("P33", "final_CH_MICS", "CP_child_age_months",
+     "CP_child_age_months carried the merged child_age_months, populated for only "
+     "~42 datasets — the alignment had mapped it to a grab-bag of raw columns (age "
+     "BANDS, DOB CMC, line numbers) and produced a valid month value for almost none, "
+     "even though the raw SAVs nearly all carry CAGE='Age (months)'.",
+     "Rebuilt CP_child_age_months from raw: CAGE (completed months 0-59) first, else "
+     "interview-minus-birth CMC (MICS4/5 UF8M/Y-AG1M/Y, MICS6 UF7M/Y-UB1M/Y). Guarded "
+     "positional backfill: row-count match + real 0-59 scale (max>=48, excludes Cuba's "
+     "cage capped at 23 and Indonesia-2000's constant 1) + rows aligned by household id "
+     ">=99.9% OR age//12 vs child_age_years >=90%. 42 -> 248 datasets, 1,625,468 rows. "
+     "Also surfaced that child_age_years is broken (all-zero / partial) for ~12 datasets "
+     "(e.g. Malawi/Sierra Leone/Uzbekistan MICS6, Guinea MICS5) — CP_child_age_months is "
+     "the reliable age source there. 7 skipped: Cuba/Indonesia (miscoded cage), Kyrgyzstan "
+     "(misaligned SAV), Myanmar-2000 (no anchor), CAR-2000 + Guyana/Iraq-2000 (no source)."),
     ("P32", "final_CH_MICS", "CP_breastfeeding_status",
      "There was no single variable for current breastfeeding status; ever-breastfed "
      "(lifetime) and still-breastfeeding (current) lived in two separate columns.",
@@ -555,7 +571,8 @@ CURATED: dict[tuple[str, str], str] = {
     ("final_HL_MICS", "education_years_estimated"): "1 = midpoint estimate, 0 = exact. (P09)",
     # CH
     ("final_CH_MICS", "child_age_years"): "Child age in completed years 0-4, ALL datasets. (P07)",
-    ("final_CH_MICS", "child_age_months"): "Child age in months 0-59; only ~42 month-coded datasets, NULL elsewhere. (P07)",
+    ("final_CH_MICS", "child_age_months"): "Child age in months 0-59, RAW: only ~42 month-coded datasets, NULL elsewhere. Use CP_child_age_months (248 datasets). (P07/P33)",
+    ("final_CH_MICS", "CP_child_age_months"): "Child age in completed months 0-59, 248 datasets. Rebuilt from raw: CAGE ('Age (months)') where present, else interview-minus-birth date (CMC: MICS4/5 UF8M/Y-AG1M/Y, MICS6 UF7M/Y-UB1M/Y). Guarded (0-59 scale + household or age-year row alignment). Prefer over raw child_age_months (~42) and over child_age_years where a month value exists. NULL for 7 datasets with no valid/aligned source (Cuba, Indonesia-2000, Kyrgyzstan-05, Myanmar-2000, CAR-2000, Guyana/Iraq-2000). (P33)",
     ("final_CH_MICS", "mother_education_harmonized"): "Mother's education, ISCED 4-level 0-3. NULL=sentinel/unmapped. (P03)",
     ("final_CH_MICS", "mother_education_years"): "Mother's years of schooling 0-25: WM-linked, HL fallback, coarse midpoint last resort. (P09)",
     ("final_CH_MICS", "mother_education_years_estimated"): "1 = estimated (midpoint/coarse fallback), 0 = exact. (P09)",

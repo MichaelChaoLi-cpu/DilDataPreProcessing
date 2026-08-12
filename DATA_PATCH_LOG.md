@@ -41,6 +41,7 @@ Records post-hoc corrections to canonical variables. Each entry documents what c
 | P28 | 2026-08-05 | WM | `CP_time_to_breastfeed_hours` + `CP_early_initiation_breastfeeding` (<=1h) + `CP_breastfed_within_24h` — early initiation of breastfeeding; unit by label; 36 datasets recovered from unmapped non-English `MN25/MN37/MN13` pairs; 154→190 | ✅ | ✅ | `MICS-WM/src/patch_breastfeed_initiation.py` |
 | P29 | 2026-08-05 | CH | `CP_ever_breastfed` (1=Yes/0=No) — harmonized 205 + recovered 28 datasets whose ever-breastfed column (BF1/BD2) was unmapped due to non-English labels; 205→233 | ✅ | ✅ | `MICS-CH/src/patch_ever_breastfed.py` |
 | P30 | 2026-08-05 | CH | `CP_still_breastfeeding` (1=Yes/0=No) — harmonized 240 + recovered 1 (DR Congo 2001); 240→241, near ceiling | ✅ | ✅ | `MICS-CH/src/patch_still_breastfeeding.py` |
+| P33 | 2026-08-13 | CH | `CP_child_age_months` — rebuilt from raw CAGE + interview−birth date (CMC); coverage 42 → 248 datasets; guarded (0-59 scale + household/age-year alignment) | ✅ | ✅ | `MICS-CH/src/patch_child_age_months.py` |
 | P32 | 2026-08-05 | CH | `CP_breastfeeding_status` — 3-category current breastfeeding status (0 never / 1 weaned / 2 currently), derived from `CP_ever_breastfed` + `CP_still_breastfeeding`; 241 datasets | ✅ | ✅ | `MICS-CH/src/patch_breastfeeding_status.py` |
 | P31 | 2026-08-05 | CH | `CP_fed_milk_yesterday` — re-derived (drank formula OR animal milk); fixes systematic MICS6 mis-alignment (BD8N=cheese mapped to milk) + juice/fish; 50 datasets' animal-milk BD7E recovered from SAV; 227 datasets | ✅ | ✅ | `MICS-CH/src/patch_fed_milk_yesterday.py` |
 
@@ -1675,3 +1676,57 @@ reupload). `ind_que` mirrors the union of the ever/still provenance, `source_kin
 ### Code
 `MICS-CH/src/patch_breastfeeding_status.py` — `_derive()` / `CASE_SQL` (kept in
 lock-step), `--verify`.
+
+---
+
+## P33 — `CP_child_age_months` (CH), rebuilt from raw — coverage 42 → 248
+
+**Date:** 2026-08-13 · **Module:** CH · **Column:** `CP_child_age_months`
+
+### Problem
+`CP_child_age_months` carried the merged `child_age_months`, populated for only
+**42 datasets**. The historical alignment had mapped `child_age_months` to a
+grab-bag of raw columns (age BANDS like `CAGE_6`/`CAGE_11`, DOB CMC, line numbers)
+and produced a valid 0-59 month value for almost none — even though the raw child
+SAVs nearly universally carry **`CAGE` = "Age (months)"** (0-59), plus the survey
+and birth date components needed to back-calculate it.
+
+### Fix (rebuild from raw, per your spec)
+Per child, take the first available:
+1. **`CAGE`** — child's age in completed months (label "Age (months)"/"Âge (mois)"/
+   "Edad (meses)"), kept when 0-59. Present in ~248 datasets.
+2. **date back-calculation** — `interview_cmc − birth_cmc`, cmc = (year−1900)·12+month:
+   - MICS4/5: interview `UF8M`/`UF8Y`, birth `AG1M`/`AG1Y`
+   - MICS6:   interview `UF7M`/`UF7Y`, birth `UB1M`/`UB1Y`
+   Calendar-guarded (year 1990-2025, month 1-12 → drops 9999/9997 sentinels), kept
+   when 0-60 (60 = 5y boundary → clamped to 59). Used only where CAGE is absent/null.
+3. existing `child_age_months` — final fallback.
+
+Guarded positional backfill — a dataset is written only if **row-count matches**,
+the values form a **real 0-59 scale** (max ≥ 48 — excludes Cuba's `cage` capped at
+23 and Indonesia-2000's constant 1), and the **rows are aligned**: household id
+matches ≥ 99.9%, OR (for datasets whose household id was recoded — Kosovo, Argentina,
+Montenegro, …) `age//12` agrees with `child_age_years` ≥ 90%. `child_age_years` can
+only *confirm* alignment, never veto it, because it is itself broken for several
+datasets (see below).
+
+### Result
+**42 → 248 datasets**, 278,913 → **1,625,468 rows**, range 0-59 (mean 29.3). Global
+`age//12 == child_age_years` agreement 0.96. Skipped (7): Cuba-06 & Indonesia-2000
+(miscoded `cage`), Kyrgyzstan-05 (SAV row order misaligned), Myanmar-2000 (no
+alignment anchor), CAR-2000 (no CAGE/date) + Guyana/Iraq-2000 (no SAV).
+
+### Side finding (not fixed here)
+`child_age_years` is broken (all-zero, or only 1-2 year values) for ~12 datasets —
+e.g. **Malawi / Sierra Leone / Uzbekistan MICS6, Guinea MICS5, Philippines 1999,
+Lao PDR 2006, Palestinians-in-Lebanon 2006**. For these, `CP_child_age_months` is
+now the reliable age variable. Logged separately in `_data_issues`.
+
+### DB / Parquet: ✅ Done (2026-08-13)
+Parquet snapshot `ch_merged.parquet.bak_p33`. DB rebuilt via `TRUNCATE` + grouped
+`COPY` (1,684,203 rows / 251 datasets preserved). `ind_que` mirrored (source_kind
+`derived`, raw `CAGE`).
+
+### Code
+`MICS-CH/src/patch_child_age_months.py` — `_from_raw()` (CAGE + CMC date, guards),
+`_cmc()`, `--verify`. Scan: `src/scan_child_age.py`.
