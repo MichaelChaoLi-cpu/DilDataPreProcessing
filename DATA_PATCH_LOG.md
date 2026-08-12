@@ -41,6 +41,7 @@ Records post-hoc corrections to canonical variables. Each entry documents what c
 | P28 | 2026-08-05 | WM | `CP_time_to_breastfeed_hours` + `CP_early_initiation_breastfeeding` (<=1h) + `CP_breastfed_within_24h` — early initiation of breastfeeding; unit by label; 36 datasets recovered from unmapped non-English `MN25/MN37/MN13` pairs; 154→190 | ✅ | ✅ | `MICS-WM/src/patch_breastfeed_initiation.py` |
 | P29 | 2026-08-05 | CH | `CP_ever_breastfed` (1=Yes/0=No) — harmonized 205 + recovered 28 datasets whose ever-breastfed column (BF1/BD2) was unmapped due to non-English labels; 205→233 | ✅ | ✅ | `MICS-CH/src/patch_ever_breastfed.py` |
 | P30 | 2026-08-05 | CH | `CP_still_breastfeeding` (1=Yes/0=No) — harmonized 240 + recovered 1 (DR Congo 2001); 240→241, near ceiling | ✅ | ✅ | `MICS-CH/src/patch_still_breastfeeding.py` |
+| P32 | 2026-08-05 | CH | `CP_breastfeeding_status` — 3-category current breastfeeding status (0 never / 1 weaned / 2 currently), derived from `CP_ever_breastfed` + `CP_still_breastfeeding`; 241 datasets | ✅ | ✅ | `MICS-CH/src/patch_breastfeeding_status.py` |
 | P31 | 2026-08-05 | CH | `CP_fed_milk_yesterday` — re-derived (drank formula OR animal milk); fixes systematic MICS6 mis-alignment (BD8N=cheese mapped to milk) + juice/fish; 50 datasets' animal-milk BD7E recovered from SAV; 227 datasets | ✅ | ✅ | `MICS-CH/src/patch_fed_milk_yesterday.py` |
 
 ---
@@ -1642,3 +1643,35 @@ CH rebuilt via `TRUNCATE` + grouped `COPY` (1,684,203 rows / 251 datasets preser
 ### Code
 `MICS-CH/src/patch_fed_milk_yesterday.py` — `_to_yesno()` (yes/no-or-count),
 `RECOVER_BD7E` (54), `_recover_bd7e()` (guarded), `derive()`/`_combine()`, `--verify`.
+
+---
+
+## P32 — `CP_breastfeeding_status` (CH), derived 3-category current status
+
+**Date:** 2026-08-05 · **Module:** CH · **Column:** `CP_breastfeeding_status`
+
+### Motivation
+Breastfeeding was split across two axes with no single status variable:
+`CP_ever_breastfed` (P29, lifetime) and `CP_still_breastfeeding` (P30, current).
+A combined 3-category status is the standard MICS "current breastfeeding status".
+
+### Derivation (pure function of two existing CP_ columns — no SAV read)
+- `2` currently breastfeeding — `CP_still_breastfeeding = 1` (applied last, so it
+  wins; a child breastfeeding now was obviously ever breastfed — overrides ~57
+  stray `ever=0` rows);
+- `0` never breastfed — `CP_ever_breastfed = 0` (and not currently);
+- `1` ever breastfed but stopped/weaned — `CP_ever_breastfed = 1 AND CP_still_breastfeeding = 0`;
+- `NULL` indeterminate — ever unknown & not-current, or `ever=1` with `still` unknown.
+
+### Result
+1,217,377 rows / **241 datasets** (= union of ever & still). Distribution:
+0 never = 54,847 · 1 weaned = 642,319 · 2 currently = 520,211. Values {0,1,2}.
+
+### DB / Parquet: ✅ Done (2026-08-05)
+Parquet snapshot `ch_merged.parquet.bak_p32`. DB updated in place via a single SQL
+`CASE` identical to the pandas logic (pure function of two existing DB columns — no
+reupload). `ind_que` mirrors the union of the ever/still provenance, `source_kind='derived'`.
+
+### Code
+`MICS-CH/src/patch_breastfeeding_status.py` — `_derive()` / `CASE_SQL` (kept in
+lock-step), `--verify`.
