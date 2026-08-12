@@ -41,6 +41,7 @@ Records post-hoc corrections to canonical variables. Each entry documents what c
 | P28 | 2026-08-05 | WM | `CP_time_to_breastfeed_hours` + `CP_early_initiation_breastfeeding` (<=1h) + `CP_breastfed_within_24h` — early initiation of breastfeeding; unit by label; 36 datasets recovered from unmapped non-English `MN25/MN37/MN13` pairs; 154→190 | ✅ | ✅ | `MICS-WM/src/patch_breastfeed_initiation.py` |
 | P29 | 2026-08-05 | CH | `CP_ever_breastfed` (1=Yes/0=No) — harmonized 205 + recovered 28 datasets whose ever-breastfed column (BF1/BD2) was unmapped due to non-English labels; 205→233 | ✅ | ✅ | `MICS-CH/src/patch_ever_breastfed.py` |
 | P30 | 2026-08-05 | CH | `CP_still_breastfeeding` (1=Yes/0=No) — harmonized 240 + recovered 1 (DR Congo 2001); 240→241, near ceiling | ✅ | ✅ | `MICS-CH/src/patch_still_breastfeeding.py` |
+| P31 | 2026-08-05 | CH | `CP_fed_milk_yesterday` — re-derived (drank formula OR animal milk); fixes systematic MICS6 mis-alignment (BD8N=cheese mapped to milk) + juice/fish; 50 datasets' animal-milk BD7E recovered from SAV; 227 datasets | ✅ | ✅ | `MICS-CH/src/patch_fed_milk_yesterday.py` |
 
 ---
 
@@ -1604,3 +1605,40 @@ Mapped updated in place; 1 recovered dataset reinserted; `ind_que` mirrored. Sna
 
 ### Code
 `MICS-CH/src/patch_still_breastfeeding.py`.
+
+---
+
+## P31 — `CP_fed_milk_yesterday` (CH), re-derived — fixes a mis-alignment
+
+**Date:** 2026-08-05 · **Module:** CH · **Column:** `CP_fed_milk_yesterday`
+
+### Problem (alignment error found in audit)
+`infant_fed_milk_yesterday` was semantically inconsistent and **mis-aligned**: for
+**~52 MICS6 datasets** it was mapped to `BD8N` = "child ate **cheese** or other food
+made from milk" (a solid dairy FOOD, not milk drinking); Cuba MICS4 -> `BF8` juice;
+Sao Tome MICS5 -> `BD8L` fish. Even the correctly-mapped datasets mixed different
+items (formula `BD7D` / animal milk `BD7E` / combined). So the raw variable cannot be
+harmonized as-is.
+
+### Fix (re-derivation)
+`CP_fed_milk_yesterday` = 1 if the child drank **infant formula OR animal/other milk**
+yesterday, 0 if neither, NULL if both missing:
+- formula from `infant_fed_formula_yesterday` (per-dataset yes/no-or-times-count);
+- milk from `infant_fed_milk_yesterday` where that column is a genuine milk-drink item;
+  for the 55 mis-aligned datasets the real animal-milk item **`BD7E`** is recovered from
+  the raw SAV (guarded positional). Cheese/juice/fish are excluded.
+
+### Result
+- 1,016,081 rows / **227 datasets**; values {0,1}; drank-milk rate **0.39**. The
+  formerly cheese-contaminated MICS6 datasets now read as milk-drinking (e.g. Ghana
+  0.15, Bangladesh 0.25, Nepal 0.43). BD7E recovered for **50** datasets; 4 skipped
+  (Kosovo / Montenegro ×2 / N.Macedonia-Roma — guard <99.9 %) fall back to formula
+  only; Cuba MICS4 has no animal-milk item (formula only).
+
+### DB / Parquet: ✅ Done (2026-08-05)
+CH rebuilt via `TRUNCATE` + grouped `COPY` (1,684,203 rows / 251 datasets preserved);
+`ind_que` mirrored. Snapshot `ch_merged.parquet.bak_p31`.
+
+### Code
+`MICS-CH/src/patch_fed_milk_yesterday.py` — `_to_yesno()` (yes/no-or-count),
+`RECOVER_BD7E` (54), `_recover_bd7e()` (guarded), `derive()`/`_combine()`, `--verify`.
