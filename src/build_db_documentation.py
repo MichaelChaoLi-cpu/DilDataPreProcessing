@@ -142,7 +142,9 @@ CH: child_age_years (0-4), child_age_months (0-59, only ~42 month-coded
     see CP_bmi_for_age_zscore_derived; WHO prefers WHZ for <5y),
     CP_diarrhea_last_2_weeks / CP_fever_last_2_weeks / CP_cough_last_2_weeks
     (harmonized 1=Yes/0=No; per-dataset label mapping),
-    CP_child_sample_weight (normalized to mean 1 per dataset; for pooling)
+    CP_child_sample_weight (normalized to mean 1 per dataset; for pooling),
+    CP_ever_breastfed (1=Yes/0=No; 233 datasets, incl. 28 recovered from unmapped
+    non-English labels)
 HH: sex_of_household_head (1/2, cleaned)
 
 Full change history: _data_issues (status='fixed', patch_id P01-P10) and
@@ -233,6 +235,15 @@ CATALOG = [
 # ---------------------------------------------------------------------------
 
 HISTORY = [
+    ("P29", "final_CH_MICS", "CP_ever_breastfed",
+     "ever_breastfed was aligned for 205 datasets; 31 more had the question UNMAPPED "
+     "in their raw SAV under a non-English label (French 'L'enfant a été allaité', "
+     "Spanish 'El niño fue amamantado', Portuguese 'Alimentado com leite materno').",
+     "Added CP_ever_breastfed (1=Yes/0=No/NULL): harmonized the 205 mapped (1->1,2->0, "
+     "sentinels null) and recovered 28 of the 31 unmapped datasets by guarded "
+     "positional backfill, value classified from each column's SAV labels (excluding "
+     "diarrhoea/still/yesterday look-alikes). 205->233 datasets; ever-breastfed 0.95. "
+     "3 skipped (no SAV / no guard key on 2000-era)."),
     ("P28", "final_WM_MICS", "CP_early_initiation_breastfeeding",
      "No early-initiation-of-breastfeeding indicator existed; the 'time to first "
      "breastfeed' question (number+unit) was aligned for 154 datasets but 39 more had "
@@ -531,6 +542,8 @@ CURATED: dict[tuple[str, str], str] = {
     ("final_CH_MICS", "CP_fever_last_2_weeks"): "Fever in last 2 weeks, harmonized: 1=Yes, 0=No, NULL=DK/missing/unknown. Per-dataset label mapping; 9 datasets recovered from unmapped/mis-mapped raw cols (malaria-module ML1/CA6AA/PCA6) the alignment had missed. 167 datasets. (P16)",
     ("final_CH_MICS", "cough_last_2_weeks"): "Had cough in last 2 weeks, RAW: coding varies across datasets (1/2, 0/1, sentinels). Use CP_cough_last_2_weeks. (P17)",
     ("final_CH_MICS", "CP_cough_last_2_weeks"): "Cough in last 2 weeks, harmonized: 1=Yes, 0=No, NULL=DK/missing/unknown. Per-dataset label mapping; 5 datasets recovered from unmapped raw CI6/CA7/CA5 the alignment had missed. (P17)",
+    ("final_CH_MICS", "ever_breastfed"): "Child ever breastfed, RAW (1=Yes/2=No + sentinels). Use CP_ever_breastfed. (P29)",
+    ("final_CH_MICS", "CP_ever_breastfed"): "Was the child ever breastfed: 1=Yes, 0=No, NULL=DK/missing. 233 datasets — 205 harmonized + 28 recovered from raw SAV columns (BF1/BD2) the alignment had missed because of non-English labels (French/Spanish/Portuguese). (P29)",
     ("final_CH_MICS", "mother_caretaker_line_number"): "Roster line of mother/caretaker; join to WM.line_number or HL.line_number.",
     # HH
     ("final_HH_MICS", "sex_of_household_head"): "1 = male, 2 = female, NULL = unknown. Verified & cleaned across all datasets. (P10)",

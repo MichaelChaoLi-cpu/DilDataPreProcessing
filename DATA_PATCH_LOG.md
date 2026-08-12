@@ -39,6 +39,7 @@ Records post-hoc corrections to canonical variables. Each entry documents what c
 | P26 | 2026-08-02 | WM | `CP_woman_age` rebuilt to REAL age (was the 5-yr group code for 153 datasets) via HL-listing join; `CP_woman_birth_year` (+`_estimated`) Gregorian, exact from birth-date else survey_year−age; CP_woman_age 216 ds, CP_woman_birth_year 245 ds | ✅ | ✅ | `MICS-WM/src/patch_woman_birth_year.py` |
 | P27 | 2026-08-04 | HH+WM+CH+HL | `CP_country`/`CP_country_code` (ISO3) + `CP_subnational`/`CP_subnational_matched` — dataset→country.json (255/255) & region-code SAV label→state.json admin-1 names (fuzzy≤2, raw fallback); country all rows, subnational 164–191 (region+province admin-1) + CP_district (admin-2, 26–34 ds); dict in `_geo_dict` | ✅ | ✅ | `src/patch_geolocation.py` |
 | P28 | 2026-08-05 | WM | `CP_time_to_breastfeed_hours` + `CP_early_initiation_breastfeeding` (<=1h) + `CP_breastfed_within_24h` — early initiation of breastfeeding; unit by label; 36 datasets recovered from unmapped non-English `MN25/MN37/MN13` pairs; 154→190 | ✅ | ✅ | `MICS-WM/src/patch_breastfeed_initiation.py` |
+| P29 | 2026-08-05 | CH | `CP_ever_breastfed` (1=Yes/0=No) — harmonized 205 + recovered 28 datasets whose ever-breastfed column (BF1/BD2) was unmapped due to non-English labels; 205→233 | ✅ | ✅ | `MICS-CH/src/patch_ever_breastfed.py` |
 
 ---
 
@@ -1539,3 +1540,39 @@ Snapshot `wm_merged.parquet.bak_p28`.
 ### Code
 `MICS-WM/src/patch_breastfeed_initiation.py` — `_utype()`/`_hours()` (label-based unit),
 `RECOVER` (39 pairs), `_recover()` (guarded), `--verify`.
+
+---
+
+## P29 — `CP_ever_breastfed` (CH)
+
+**Date:** 2026-08-05 · **Module:** CH · **Column:** `CP_ever_breastfed`
+
+### Problem
+"Has (name) ever been breastfed?" was aligned for **205** datasets, but **31** more had
+it UNMAPPED in their raw SAV under a non-English label — French "L'enfant a été
+allaité", Spanish "El niño fue amamantado", Portuguese "Alimentado com leite materno"
+(BF1 in MICS2-5, BD2 in MICS6) — the translation gap the user flagged.
+
+### Fix
+`CP_ever_breastfed` = 1 Yes / 0 No / NULL (sentinels 7/8/9 DK/missing). Coding is a
+uniform 1=Yes/2=No across all mapped datasets. Recovered **28** of the 31 unmapped
+datasets by guarded positional backfill (household_number == HH2/…), the value
+classified from each column's own SAV value labels; diarrhoea (CA1), "still
+breastfeeding" and "…yesterday" look-alikes are excluded by construction.
+
+### Result
+- 1,205,888 rows / **233 datasets** (205 + 28); values {0,1}; overall ever-breastfed
+  rate 0.95. Skipped 3: Côte d'Ivoire MICS5 (no CH SAV on drive), Madagascar 2000 &
+  Rwanda 2000 (2000-era CH SAV has no recognised household key). Remaining unmapped
+  datasets genuinely never asked the question (old MICS2/2000 reduced questionnaires).
+
+### DB status: ✅ Done (2026-08-05)
+Mapped datasets updated in place (1->1/2->0); 28 recovered datasets delete + re-inserted
+from patched parquet; `ind_que` mirrored.
+
+### Parquet status: ✅ Done (2026-08-05)
+Snapshot `ch_merged.parquet.bak_p29`.
+
+### Code
+`MICS-CH/src/patch_ever_breastfed.py` — `_classify()` (label-driven yes/no), `RECOVER`
+(31 columns), `_recover()` (guarded), `--verify`.
