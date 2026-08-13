@@ -41,6 +41,7 @@ Records post-hoc corrections to canonical variables. Each entry documents what c
 | P28 | 2026-08-05 | WM | `CP_time_to_breastfeed_hours` + `CP_early_initiation_breastfeeding` (<=1h) + `CP_breastfed_within_24h` — early initiation of breastfeeding; unit by label; 36 datasets recovered from unmapped non-English `MN25/MN37/MN13` pairs; 154→190 | ✅ | ✅ | `MICS-WM/src/patch_breastfeed_initiation.py` |
 | P29 | 2026-08-05 | CH | `CP_ever_breastfed` (1=Yes/0=No) — harmonized 205 + recovered 28 datasets whose ever-breastfed column (BF1/BD2) was unmapped due to non-English labels; 205→233 | ✅ | ✅ | `MICS-CH/src/patch_ever_breastfed.py` |
 | P30 | 2026-08-05 | CH | `CP_still_breastfeeding` (1=Yes/0=No) — harmonized 240 + recovered 1 (DR Congo 2001); 240→241, near ceiling | ✅ | ✅ | `MICS-CH/src/patch_still_breastfeeding.py` |
+| P38 | 2026-08-14 | CH | `CP_fed_yogurt_yesterday` — drank/ate yogurt (1/0) REBUILT from raw (OR of BD8A + BD7F yogurt-drink); fixes infant_fed_yogurt_yesterday times-count (3/4/7) + cheese contamination; 148 → 155 datasets | ✅ | ✅ | `MICS-CH/src/patch_fed_yogurt.py` |
 | P37 | 2026-08-13 | CH | `CP_fed_pulses_nuts_seeds_yesterday` — beans/peas/lentils/nuts (1/0) REBUILT from raw BD8M; fixes dd_legumes_nuts contamination (BD8G fruit / BD7D formula / IM8-IM12 vaccine); 112 datasets | ✅ | ✅ | `MICS-CH/src/patch_fed_pulses_nuts.py` |
 | P36 | 2026-08-13 | CH | `CP_fed_roots_tubers_plantains_yesterday` — ate white roots/tubers/plantains (1/0) from raw BD8E; harmonized 94 + recovered 19; 94 → 113 datasets | ✅ | ✅ | `MICS-CH/src/patch_fed_roots_tubers.py` |
 | P35 | 2026-08-13 | CH | `CP_fed_grain_based_fortified_baby_food_yesterday` — ate fortified baby food (cerelac etc.) 1/0 from raw BD8B; harmonized 107 + recovered 7; 107 → 114 datasets | ✅ | ✅ | `MICS-CH/src/patch_fed_fortified_baby_food.py` |
@@ -1887,3 +1888,44 @@ Parquet snapshot `ch_merged.parquet.bak_p37`. DB rebuilt via `TRUNCATE` + groupe
 ### Code
 `MICS-CH/src/patch_fed_pulses_nuts.py` — `_from_raw()` (BD8M + legumes-label + household
 guard), `_single_bd8m_datasets()` (trusted fallback), `SPECIAL` (BD8K/BF15LX), `--verify`.
+
+---
+
+## P38 — `CP_fed_yogurt_yesterday` (CH), rebuilt from raw (BD8A + BD7F)
+
+**Date:** 2026-08-14 · **Module:** CH · **Column:** `CP_fed_yogurt_yesterday`
+
+### Problem (contamination found)
+`infant_fed_yogurt_yesterday` (148 datasets) was contaminated: most datasets map it to
+BOTH the yes/no item AND its **times-count companion** — `BD8A`/`BF13` "drank or ate
+yogurt" (1/2) plus `BD8A1`/`BD8AN`/`BF14` "Times drank or ate yogurt" (values 3/4/7
+leaked in). A few datasets also had cheese / mixed-dairy / diarrhoea-liquid columns
+mapped to it.
+
+### Fix (rebuild fresh from raw, label-driven, OR-combined)
+`CP_fed_yogurt_yesterday` read per dataset from the raw SAV: select **every** column
+whose label is yogurt AND is a yes/no item, and OR-combine (yes if any yogurt item is
+yes) — capturing both the eaten and drunk forms:
+- `BD8A` "Child drank or ate yogurt yesterday" (MICS5/6, already covers both forms);
+- `BD7F`/`BD7F2` "drank (sweet) yogurt / ayran / kefir yogurt drinks" (MICS6-2023 split
+  the liquid form out; Algeria "yaourt liquide");
+- `BF13` "L'enfant a bu ou mangé des yaourts hier" (MICS4);
+- `BF3I` "Child received yogurt", `ca2e` "Yoghurt drink".
+Excluded by label: **times-count** companions (times/nombre/fois/number), **cheese /
+mixed dairy** ("cheese, yogurt or other milk products"; "fromage ou yaourt"; Mexico
+"…excepto yogurt"), and **diarrhoea catch-all liquids** ("Other (yogurt, sour milk,
+tea, sugar…)"; "autre liquide"). Value 1→1, 2→0, 7/8/9→NULL. Guard: row count +
+`household_number` == SAV HH id ≥ 99.9%.
+
+### Result
+**148 → 155 datasets**, **715,487 rows**, values strictly {0,1} (times-counts gone),
+global rate 0.19 (Algeria 0.54, Nepal 0.09, Lao-2023 0.03). 9 skipped: id-recoded MICS6
+(Kosovo/Montenegro/N.Macedonia/Sao Tome/Guinea Bissau) + Moldova MICS4 (household guard).
+
+### DB / Parquet: ✅ Done (2026-08-14)
+Parquet snapshot `ch_merged.parquet.bak_p38`. DB rebuilt via `TRUNCATE` + grouped `COPY`
+(1,684,203 rows / 251 datasets preserved). `ind_que` mirrored (source_kind `derived`).
+
+### Code
+`MICS-CH/src/patch_fed_yogurt.py` — `_select_cols()` (yogurt yes/no, excl counts/cheese/
+catch-alls), `_from_raw()` (OR-combine + household guard), `--verify`.
