@@ -41,6 +41,7 @@ Records post-hoc corrections to canonical variables. Each entry documents what c
 | P28 | 2026-08-05 | WM | `CP_time_to_breastfeed_hours` + `CP_early_initiation_breastfeeding` (<=1h) + `CP_breastfed_within_24h` — early initiation of breastfeeding; unit by label; 36 datasets recovered from unmapped non-English `MN25/MN37/MN13` pairs; 154→190 | ✅ | ✅ | `MICS-WM/src/patch_breastfeed_initiation.py` |
 | P29 | 2026-08-05 | CH | `CP_ever_breastfed` (1=Yes/0=No) — harmonized 205 + recovered 28 datasets whose ever-breastfed column (BF1/BD2) was unmapped due to non-English labels; 205→233 | ✅ | ✅ | `MICS-CH/src/patch_ever_breastfed.py` |
 | P30 | 2026-08-05 | CH | `CP_still_breastfeeding` (1=Yes/0=No) — harmonized 240 + recovered 1 (DR Congo 2001); 240→241, near ceiling | ✅ | ✅ | `MICS-CH/src/patch_still_breastfeeding.py` |
+| P36 | 2026-08-13 | CH | `CP_fed_roots_tubers_plantains_yesterday` — ate white roots/tubers/plantains (1/0) from raw BD8E; harmonized 94 + recovered 19; 94 → 113 datasets | ✅ | ✅ | `MICS-CH/src/patch_fed_roots_tubers.py` |
 | P35 | 2026-08-13 | CH | `CP_fed_grain_based_fortified_baby_food_yesterday` — ate fortified baby food (cerelac etc.) 1/0 from raw BD8B; harmonized 107 + recovered 7; 107 → 114 datasets | ✅ | ✅ | `MICS-CH/src/patch_fed_fortified_baby_food.py` |
 | P34 | 2026-08-13 | CH | `CP_fed_grains_yesterday` — ate grains yesterday (1/0) from raw BD8C only; harmonized 55 + recovered 59 unmapped non-English BD8C; 55 → 114 datasets | ✅ | ✅ | `MICS-CH/src/patch_fed_grains_yesterday.py` |
 | P33 | 2026-08-13 | CH | `CP_child_age_months` — rebuilt from raw CAGE + interview−birth date (CMC); coverage 42 → 248 datasets; guarded (0-59 scale + household/age-year alignment) | ✅ | ✅ | `MICS-CH/src/patch_child_age_months.py` |
@@ -1807,3 +1808,40 @@ recovered reinserted (DELETE + COPY). `ind_que` mirrored. CH rows preserved (1,6
 `MICS-CH/src/patch_fed_fortified_baby_food.py` — `_classify()` (multilingual yes/no),
 `RECOVER` (8 BD8B datasets), `_recover()`/`_sav_dir()` (BD8B→BD8B1 fallback, NFC/NFD-robust),
 `--verify`.
+
+---
+
+## P36 — `CP_fed_roots_tubers_plantains_yesterday` (CH), from BD8E
+
+**Date:** 2026-08-13 · **Module:** CH · **Column:** `CP_fed_roots_tubers_plantains_yesterday`
+
+### Problem
+The white-roots-and-tubers food-group item — **`BD8E`** "Child ate white potatoes,
+white yams, manioc, cassava or any other foods made from roots yesterday" (some datasets
+also list plantains, e.g. Cuba "plátano verde") — existed only as `dd_white_roots_tubers`,
+mapped for **94 datasets** though `BD8E` is present in the raw SAV of **115**.
+
+### Fix (BD8E only)
+`CP_fed_roots_tubers_plantains_yesterday` = harmonized: 1=Yes → 1, 2=No → 0, sentinels
+(7/8/9) → NULL. Base = `dd_white_roots_tubers` (94 datasets: 93 from BD8E + 1 Madagascar-
+South `BF15DX` "aliments à base de racines", verified roots) updated in place; **19 more
+recovered** from the raw SAV by guarded positional backfill (row-count + `household_number`
+== SAV HH id ≥ 99.9%), value classified from each column's own multilingual labels
+(verified BD8E = white roots/tubers across EN/FR/ES/PT, all value labels yes/no).
+
+**BD8E-only scope.** A broad look-behind found genuine MICS4 roots items under other
+codes — Ghana `DD1H`, CAR `BF19C`, Mali `BF16C` — deliberately left out to keep the
+construct identical (same choice as P34 grains).
+
+### Result
+**94 → 113 datasets**, **397,532 rows**, values {0,1}, global rate 0.30 (e.g. Paraguay
+0.62, Congo 0.46, DRCongo 0.37). 3 skipped: Guinea Bissau MICS6 (household guard 0.9%)
+and Sao Tome MICS6 ×2 (0.9% / 99.0%) — same recoding/misalignment issues seen in P33.
+
+### DB / Parquet: ✅ Done (2026-08-13)
+Parquet snapshot `ch_merged.parquet.bak_p36`. Mapped datasets updated in place; 19
+recovered reinserted (DELETE + COPY). `ind_que` mirrored. CH rows preserved (1,684,203 / 251).
+
+### Code
+`MICS-CH/src/patch_fed_roots_tubers.py` — `_classify()` (multilingual yes/no), `RECOVER`
+(22 BD8E datasets), `_recover()`/`_sav_dir()` (NFC/NFD-robust), `--verify`.
