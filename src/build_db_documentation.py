@@ -149,7 +149,9 @@ CH: child_age_years (0-4), CP_child_age_months (0-59, 248 datasets — rebuilt f
     CP_fed_milk_yesterday (1=drank formula or animal milk /0 neither; 227 datasets;
     re-derived - do NOT use raw infant_fed_milk_yesterday which conflates cheese/juice),
     CP_breastfeeding_status (3-cat current status: 0 never / 1 stopped / 2 currently;
-    241 datasets; derived from ever + still)
+    241 datasets; derived from ever + still),
+    CP_fed_grains_yesterday (ate grains yesterday 1/0; 114 datasets; from raw BD8C
+    only - prefer over dd_grains which conflates broth/rice-water/roots/porridge)
 HH: sex_of_household_head (1/2, cleaned)
 
 Full change history: _data_issues (status='fixed', patch_id P01-P10) and
@@ -241,6 +243,16 @@ CATALOG = [
 # ---------------------------------------------------------------------------
 
 HISTORY = [
+    ("P34", "final_CH_MICS", "CP_fed_grains_yesterday",
+     "The 24h grains food-group item (BD8C, 'ate bread/rice/noodles/porridge or other "
+     "foods made from grains') was mapped for only 55 datasets, though BD8C is present in "
+     "115. dd_grains conflated BD8C with mis-aligned raw columns (BD7C broth, BD7O rice "
+     "water, BD8E roots, BD8P sweets, CI3B diarrhoea gruel, BF15 thin porridge).",
+     "Added CP_fed_grains_yesterday (1=Yes/0=No/NULL) from BD8C only: harmonized the 55 "
+     "mapped + recovered 59 more whose BD8C was unmapped due to non-English labels "
+     "(French/Spanish/Portuguese). 55 -> 114 datasets; global rate 0.64. 1 skipped "
+     "(Kosovo-Roma MICS5, household guard 98.2%). BD8C-only scope keeps the construct "
+     "identical across datasets; dd_grains left untouched."),
     ("P33", "final_CH_MICS", "CP_child_age_months",
      "CP_child_age_months carried the merged child_age_months, populated for only "
      "~42 datasets — the alignment had mapped it to a grab-bag of raw columns (age "
@@ -593,6 +605,9 @@ CURATED: dict[tuple[str, str], str] = {
     ("final_CH_MICS", "infant_fed_milk_yesterday"): "RAW and INCONSISTENT: for ~52 MICS6 datasets this is BD8N='ate cheese/food made from milk' (NOT milk drinking), plus juice/fish in a couple; elsewhere it mixes formula/animal/combined milk. Do NOT use directly — use CP_fed_milk_yesterday. (P31)",
     ("final_CH_MICS", "CP_fed_milk_yesterday"): "Child drank milk yesterday: 1 = drank infant formula OR animal/other milk, 0 = neither, NULL = missing. Re-derived to fix the mis-aligned raw variable (which conflated cheese/juice/fish); animal-milk BD7E recovered from the SAV for 50 MICS6 datasets. 227 datasets. (P31)",
     ("final_CH_MICS", "CP_still_breastfeeding"): "Is the child still being breastfed: 1=Yes, 0=No, NULL=DK/missing. 241 datasets (240 harmonized + 1 recovered). By definition applies to children ever breastfed. (P30)",
+    ("final_CH_MICS", "CP_fed_grains_yesterday"): "Child ate foods made from grains yesterday (bread/rice/noodles/porridge/pasta etc.): 1=Yes, 0=No, NULL=DK/missing. From raw BD8C only. 114 datasets (55 mapped + 59 recovered from unmapped non-English BD8C). Prefer over dd_grains, which conflated BD8C with broth/rice-water/roots/sweets/thin-porridge. (P34)",
+    ("final_CH_MICS", "infant_fed_grains_yesterday"): "Child ate foods made from grains yesterday, RAW (BD8C, 1=Yes/2=No + sentinels); only 55 datasets. Use CP_fed_grains_yesterday (114). (P34)",
+    ("final_CH_MICS", "dd_grains"): "Dietary-diversity grains flag, RAW and PARTLY MIS-ALIGNED: mostly BD8C (grains) but for ~16 datasets mapped to broth/rice-water/roots/sweets/diarrhoea-gruel/thin-porridge. Do NOT use for a clean grains indicator — use CP_fed_grains_yesterday. (P34)",
     ("final_CH_MICS", "CP_breastfeeding_status"): "Current breastfeeding status (3-category): 0 = never breastfed, 1 = ever breastfed but stopped/weaned, 2 = currently breastfeeding, NULL = indeterminate. Derived from CP_ever_breastfed (lifetime) + CP_still_breastfeeding (current): still=1 -> 2 (wins, implies ever); ever=0 -> 0; ever=1 & still=0 -> 1. 241 datasets, 1,217,377 rows. (P32)",
     ("final_CH_MICS", "mother_caretaker_line_number"): "Roster line of mother/caretaker; join to WM.line_number or HL.line_number.",
     # HH

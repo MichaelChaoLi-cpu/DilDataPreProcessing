@@ -41,6 +41,7 @@ Records post-hoc corrections to canonical variables. Each entry documents what c
 | P28 | 2026-08-05 | WM | `CP_time_to_breastfeed_hours` + `CP_early_initiation_breastfeeding` (<=1h) + `CP_breastfed_within_24h` — early initiation of breastfeeding; unit by label; 36 datasets recovered from unmapped non-English `MN25/MN37/MN13` pairs; 154→190 | ✅ | ✅ | `MICS-WM/src/patch_breastfeed_initiation.py` |
 | P29 | 2026-08-05 | CH | `CP_ever_breastfed` (1=Yes/0=No) — harmonized 205 + recovered 28 datasets whose ever-breastfed column (BF1/BD2) was unmapped due to non-English labels; 205→233 | ✅ | ✅ | `MICS-CH/src/patch_ever_breastfed.py` |
 | P30 | 2026-08-05 | CH | `CP_still_breastfeeding` (1=Yes/0=No) — harmonized 240 + recovered 1 (DR Congo 2001); 240→241, near ceiling | ✅ | ✅ | `MICS-CH/src/patch_still_breastfeeding.py` |
+| P34 | 2026-08-13 | CH | `CP_fed_grains_yesterday` — ate grains yesterday (1/0) from raw BD8C only; harmonized 55 + recovered 59 unmapped non-English BD8C; 55 → 114 datasets | ✅ | ✅ | `MICS-CH/src/patch_fed_grains_yesterday.py` |
 | P33 | 2026-08-13 | CH | `CP_child_age_months` — rebuilt from raw CAGE + interview−birth date (CMC); coverage 42 → 248 datasets; guarded (0-59 scale + household/age-year alignment) | ✅ | ✅ | `MICS-CH/src/patch_child_age_months.py` |
 | P32 | 2026-08-05 | CH | `CP_breastfeeding_status` — 3-category current breastfeeding status (0 never / 1 weaned / 2 currently), derived from `CP_ever_breastfed` + `CP_still_breastfeeding`; 241 datasets | ✅ | ✅ | `MICS-CH/src/patch_breastfeeding_status.py` |
 | P31 | 2026-08-05 | CH | `CP_fed_milk_yesterday` — re-derived (drank formula OR animal milk); fixes systematic MICS6 mis-alignment (BD8N=cheese mapped to milk) + juice/fish; 50 datasets' animal-milk BD7E recovered from SAV; 227 datasets | ✅ | ✅ | `MICS-CH/src/patch_fed_milk_yesterday.py` |
@@ -1730,3 +1731,43 @@ Parquet snapshot `ch_merged.parquet.bak_p33`. DB rebuilt via `TRUNCATE` + groupe
 ### Code
 `MICS-CH/src/patch_child_age_months.py` — `_from_raw()` (CAGE + CMC date, guards),
 `_cmc()`, `--verify`. Scan: `src/scan_child_age.py`.
+
+---
+
+## P34 — `CP_fed_grains_yesterday` (CH), harmonized + recovered from BD8C
+
+**Date:** 2026-08-13 · **Module:** CH · **Column:** `CP_fed_grains_yesterday`
+
+### Problem
+The 24-hour grains food-group question — **`BD8C`** "Child ate bread, rice, noodles,
+porridge or other foods made from grains yesterday" — was mapped (as
+`infant_fed_grains_yesterday`) for only **55 datasets**, though `BD8C` is present in the
+raw SAV of **115**. The 60 unmapped ones carry non-English labels (French "aliments
+faits à base de grains", Spanish "Alimentos elaborados con granos", Portuguese
+"alimentos feitos a partir de grãos"). Separately, `dd_grains` is contaminated: it maps
+BD8C for most datasets but for ~16 points to mis-aligned raw columns — `BD7C` clear
+broth, `BD7O` rice water, `BD7X` watery porridge, `BD8E` roots/cassava, `BD8P` sweets,
+`CI3B` diarrhoea gruel, `BF15` thin porridge — so it cannot serve as a clean grains flag.
+
+### Fix (BD8C only)
+`CP_fed_grains_yesterday` = harmonized `BD8C`: 1=Yes → 1, 2=No → 0, sentinels (7
+incoherent, 8/9 DK/missing) → NULL. Base 55 mapped datasets updated in place; **59
+more recovered** from the raw SAV by guarded positional backfill (row-count match +
+`household_number` == SAV HH id ≥ 99.9%), value classified from that column's own
+multilingual labels. **BD8C-only** keeps the construct identical across datasets — the
+MICS4 grains items under other codes (DD1F/BF16A/BF19A/BF15, and thin-porridge BF15)
+were deliberately excluded from this scope.
+
+### Result
+**55 → 114 datasets**, **400,584 rows**, values {0,1}, global ate-grains rate 0.64
+(e.g. Nepal 0.79, Thailand 0.80, Nigeria 0.70). 1 skipped: Kosovo-Roma MICS5
+(household guard 98.2% — same recoding issue as the breastfeeding batch).
+
+### DB / Parquet: ✅ Done (2026-08-13)
+Parquet snapshot `ch_merged.parquet.bak_p34`. Mapped datasets updated in place; 59
+recovered datasets reinserted (DELETE + COPY). `ind_que` mirrored. CH rows preserved
+(1,684,203 / 251).
+
+### Code
+`MICS-CH/src/patch_fed_grains_yesterday.py` — `_classify()` (multilingual yes/no),
+`RECOVER` (60 BD8C datasets), `_recover()` / `_sav_dir()` (NFC/NFD-robust), `--verify`.
