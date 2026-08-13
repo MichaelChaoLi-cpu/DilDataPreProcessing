@@ -155,7 +155,9 @@ CH: child_age_years (0-4), CP_child_age_months (0-59, 248 datasets — rebuilt f
     CP_fed_grain_based_fortified_baby_food_yesterday (ate fortified baby food /
     cerelac yesterday 1/0; 114 datasets; from raw BD8B),
     CP_fed_roots_tubers_plantains_yesterday (ate white roots/tubers/plantains
-    yesterday 1/0; 113 datasets; from raw BD8E)
+    yesterday 1/0; 113 datasets; from raw BD8E),
+    CP_fed_pulses_nuts_seeds_yesterday (ate beans/peas/lentils/nuts yesterday 1/0;
+    112 datasets; rebuilt from raw BD8M - dd_legumes_nuts was contaminated)
 HH: sex_of_household_head (1/2, cleaned)
 
 Full change history: _data_issues (status='fixed', patch_id P01-P10) and
@@ -247,6 +249,16 @@ CATALOG = [
 # ---------------------------------------------------------------------------
 
 HISTORY = [
+    ("P37", "final_CH_MICS", "CP_fed_pulses_nuts_seeds_yesterday",
+     "dd_legumes_nuts (the legumes/nuts food group, raw BD8M) was silently contaminated: "
+     "for several multi-source datasets the merge took the WRONG raw column — Algeria MICS6 "
+     "== BD8G ('figues, pommes, poires' vitamin-A fruit), others carried BD7D infant formula "
+     "or IM8/IM12 immunization columns; Pakistan-KP's BD8M is actually 'other solid food'.",
+     "Added CP_fed_pulses_nuts_seeds_yesterday (1=Yes/0=No/NULL), REBUILT fresh from raw "
+     "BD8M with a legumes-label + household-alignment guard (never trusting the contaminated "
+     "merged column). 2 shifted-letter datasets read from their real column (Pakistan-KP "
+     "BD8K, Madagascar-South BF15LX); 4 id-recoded single-BD8M datasets kept from the merged "
+     "value. 112 datasets; global rate 0.19. 4 skipped (multi-source + household guard fail)."),
     ("P36", "final_CH_MICS", "CP_fed_roots_tubers_plantains_yesterday",
      "The white-roots-and-tubers food-group item (BD8E, 'ate white potatoes, yams, "
      "manioc, cassava or other foods made from roots') existed only as dd_white_roots_"
@@ -626,6 +638,8 @@ CURATED: dict[tuple[str, str], str] = {
     ("final_CH_MICS", "infant_fed_milk_yesterday"): "RAW and INCONSISTENT: for ~52 MICS6 datasets this is BD8N='ate cheese/food made from milk' (NOT milk drinking), plus juice/fish in a couple; elsewhere it mixes formula/animal/combined milk. Do NOT use directly — use CP_fed_milk_yesterday. (P31)",
     ("final_CH_MICS", "CP_fed_milk_yesterday"): "Child drank milk yesterday: 1 = drank infant formula OR animal/other milk, 0 = neither, NULL = missing. Re-derived to fix the mis-aligned raw variable (which conflated cheese/juice/fish); animal-milk BD7E recovered from the SAV for 50 MICS6 datasets. 227 datasets. (P31)",
     ("final_CH_MICS", "CP_still_breastfeeding"): "Is the child still being breastfed: 1=Yes, 0=No, NULL=DK/missing. 241 datasets (240 harmonized + 1 recovered). By definition applies to children ever breastfed. (P30)",
+    ("final_CH_MICS", "CP_fed_pulses_nuts_seeds_yesterday"): "Child ate beans, peas, lentils, nuts or seeds yesterday: 1=Yes, 0=No, NULL=DK/missing. Rebuilt fresh from raw BD8M (legumes-label + household guard), NOT from dd_legumes_nuts which was contaminated (took BD8G fruit / BD7D formula / IM8-IM12 immunization for some datasets). 112 datasets. (P37)",
+    ("final_CH_MICS", "dd_legumes_nuts"): "Dietary-diversity legumes/nuts flag, RAW and CONTAMINATED: for several multi-source datasets the merge took the wrong raw column (Algeria MICS6 = BD8G vitamin-A fruit; others BD7D formula or IM8/IM12 immunization). Do NOT use — use CP_fed_pulses_nuts_seeds_yesterday. (P37)",
     ("final_CH_MICS", "CP_fed_roots_tubers_plantains_yesterday"): "Child ate white roots, tubers or plantains yesterday (white potatoes/yams/manioc/cassava etc.): 1=Yes, 0=No, NULL=DK/missing. From raw BD8E. 113 datasets (94 mapped + 19 recovered). (P36)",
     ("final_CH_MICS", "dd_white_roots_tubers"): "Dietary-diversity white-roots/tubers flag, RAW (BD8E, 1=Yes/2=No + sentinels); 94 datasets. Use CP_fed_roots_tubers_plantains_yesterday (113). (P36)",
     ("final_CH_MICS", "CP_fed_grain_based_fortified_baby_food_yesterday"): "Child ate commercially fortified (grain-based) baby food yesterday, e.g. Cerelac/Gerber/Nestum: 1=Yes, 0=No, NULL=DK/missing. From raw BD8B only. 114 datasets (107 mapped + 7 recovered). MICS5/6-only item. (P35)",

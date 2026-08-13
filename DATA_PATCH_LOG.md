@@ -41,6 +41,7 @@ Records post-hoc corrections to canonical variables. Each entry documents what c
 | P28 | 2026-08-05 | WM | `CP_time_to_breastfeed_hours` + `CP_early_initiation_breastfeeding` (<=1h) + `CP_breastfed_within_24h` — early initiation of breastfeeding; unit by label; 36 datasets recovered from unmapped non-English `MN25/MN37/MN13` pairs; 154→190 | ✅ | ✅ | `MICS-WM/src/patch_breastfeed_initiation.py` |
 | P29 | 2026-08-05 | CH | `CP_ever_breastfed` (1=Yes/0=No) — harmonized 205 + recovered 28 datasets whose ever-breastfed column (BF1/BD2) was unmapped due to non-English labels; 205→233 | ✅ | ✅ | `MICS-CH/src/patch_ever_breastfed.py` |
 | P30 | 2026-08-05 | CH | `CP_still_breastfeeding` (1=Yes/0=No) — harmonized 240 + recovered 1 (DR Congo 2001); 240→241, near ceiling | ✅ | ✅ | `MICS-CH/src/patch_still_breastfeeding.py` |
+| P37 | 2026-08-13 | CH | `CP_fed_pulses_nuts_seeds_yesterday` — beans/peas/lentils/nuts (1/0) REBUILT from raw BD8M; fixes dd_legumes_nuts contamination (BD8G fruit / BD7D formula / IM8-IM12 vaccine); 112 datasets | ✅ | ✅ | `MICS-CH/src/patch_fed_pulses_nuts.py` |
 | P36 | 2026-08-13 | CH | `CP_fed_roots_tubers_plantains_yesterday` — ate white roots/tubers/plantains (1/0) from raw BD8E; harmonized 94 + recovered 19; 94 → 113 datasets | ✅ | ✅ | `MICS-CH/src/patch_fed_roots_tubers.py` |
 | P35 | 2026-08-13 | CH | `CP_fed_grain_based_fortified_baby_food_yesterday` — ate fortified baby food (cerelac etc.) 1/0 from raw BD8B; harmonized 107 + recovered 7; 107 → 114 datasets | ✅ | ✅ | `MICS-CH/src/patch_fed_fortified_baby_food.py` |
 | P34 | 2026-08-13 | CH | `CP_fed_grains_yesterday` — ate grains yesterday (1/0) from raw BD8C only; harmonized 55 + recovered 59 unmapped non-English BD8C; 55 → 114 datasets | ✅ | ✅ | `MICS-CH/src/patch_fed_grains_yesterday.py` |
@@ -1845,3 +1846,44 @@ recovered reinserted (DELETE + COPY). `ind_que` mirrored. CH rows preserved (1,6
 ### Code
 `MICS-CH/src/patch_fed_roots_tubers.py` — `_classify()` (multilingual yes/no), `RECOVER`
 (22 BD8E datasets), `_recover()`/`_sav_dir()` (NFC/NFD-robust), `--verify`.
+
+---
+
+## P37 — `CP_fed_pulses_nuts_seeds_yesterday` (CH), rebuilt from raw BD8M
+
+**Date:** 2026-08-13 · **Module:** CH · **Column:** `CP_fed_pulses_nuts_seeds_yesterday`
+
+### Problem (contamination found)
+The legumes/nuts food-group item is **`BD8M`** "Child ate beans, peas, lentils or nuts
+or any food made from these, yesterday". The existing `dd_legumes_nuts` (101 datasets)
+was silently **contaminated**: several datasets have multiple raw columns mapped to it in
+`ind_que`, and the merge took the WRONG one for some — verified **Algeria MICS6
+`dd_legumes_nuts` == `BD8G`** "figues, pommes, poires" (vitamin-A FRUIT, matches at 1.000;
+BD8M only 0.78). Others carried `BD7D` infant formula or `IM8`/`IM12` immunization columns.
+Additionally **Pakistan-KP MICS5**'s `BD8M` is actually labelled "other solid food" — its
+food-group letters are shifted (legumes live under `BD8K`).
+
+### Fix (rebuild fresh from raw — do NOT trust the merged column)
+`CP_fed_pulses_nuts_seeds_yesterday` read per dataset directly from the raw SAV:
+1. read `BD8M`; require its **variable label to be legumes/nuts** (excludes the shifted /
+   mislabelled cases) and the rows to align (SAV row count == parquet; `household_number`
+   == SAV HH id ≥ 99.9%); classify from BD8M's own multilingual labels (1→1, 2→0, 7/8/9→NULL);
+2. two shifted-letter datasets read from their real legumes column: Pakistan-KP `BD8K`,
+   Madagascar-South `BF15LX`;
+3. for **single-BD8M-source** datasets whose raw re-read fails only the household guard
+   (id-recoded: Kosovo/Montenegro MICS6), keep the merged `dd_legumes_nuts` value — it is
+   trustworthy there (only one source, so no wrong-column risk).
+
+### Result
+**112 datasets**, **397,239 rows**, values {0,1}, global rate 0.19 (Nepal 0.37, Montenegro
+0.19, Ghana 0.13). Algeria now reads BD8M legumes instead of BD8G fruit. 4 skipped:
+Guinea Bissau MICS6, N. Macedonia-Roma MICS6, Sao Tome MICS6 ×2 (multi-source AND household
+guard fail — cannot safely resolve).
+
+### DB / Parquet: ✅ Done (2026-08-13)
+Parquet snapshot `ch_merged.parquet.bak_p37`. DB rebuilt via `TRUNCATE` + grouped `COPY`
+(1,684,203 rows / 251 datasets preserved). `ind_que` mirrored (source_kind `derived`, BD8M).
+
+### Code
+`MICS-CH/src/patch_fed_pulses_nuts.py` — `_from_raw()` (BD8M + legumes-label + household
+guard), `_single_bd8m_datasets()` (trusted fallback), `SPECIAL` (BD8K/BF15LX), `--verify`.
