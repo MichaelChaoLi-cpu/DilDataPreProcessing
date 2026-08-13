@@ -41,6 +41,7 @@ Records post-hoc corrections to canonical variables. Each entry documents what c
 | P28 | 2026-08-05 | WM | `CP_time_to_breastfeed_hours` + `CP_early_initiation_breastfeeding` (<=1h) + `CP_breastfed_within_24h` — early initiation of breastfeeding; unit by label; 36 datasets recovered from unmapped non-English `MN25/MN37/MN13` pairs; 154→190 | ✅ | ✅ | `MICS-WM/src/patch_breastfeed_initiation.py` |
 | P29 | 2026-08-05 | CH | `CP_ever_breastfed` (1=Yes/0=No) — harmonized 205 + recovered 28 datasets whose ever-breastfed column (BF1/BD2) was unmapped due to non-English labels; 205→233 | ✅ | ✅ | `MICS-CH/src/patch_ever_breastfed.py` |
 | P30 | 2026-08-05 | CH | `CP_still_breastfeeding` (1=Yes/0=No) — harmonized 240 + recovered 1 (DR Congo 2001); 240→241, near ceiling | ✅ | ✅ | `MICS-CH/src/patch_still_breastfeeding.py` |
+| P35 | 2026-08-13 | CH | `CP_fed_grain_based_fortified_baby_food_yesterday` — ate fortified baby food (cerelac etc.) 1/0 from raw BD8B; harmonized 107 + recovered 7; 107 → 114 datasets | ✅ | ✅ | `MICS-CH/src/patch_fed_fortified_baby_food.py` |
 | P34 | 2026-08-13 | CH | `CP_fed_grains_yesterday` — ate grains yesterday (1/0) from raw BD8C only; harmonized 55 + recovered 59 unmapped non-English BD8C; 55 → 114 datasets | ✅ | ✅ | `MICS-CH/src/patch_fed_grains_yesterday.py` |
 | P33 | 2026-08-13 | CH | `CP_child_age_months` — rebuilt from raw CAGE + interview−birth date (CMC); coverage 42 → 248 datasets; guarded (0-59 scale + household/age-year alignment) | ✅ | ✅ | `MICS-CH/src/patch_child_age_months.py` |
 | P32 | 2026-08-05 | CH | `CP_breastfeeding_status` — 3-category current breastfeeding status (0 never / 1 weaned / 2 currently), derived from `CP_ever_breastfed` + `CP_still_breastfeeding`; 241 datasets | ✅ | ✅ | `MICS-CH/src/patch_breastfeeding_status.py` |
@@ -1771,3 +1772,38 @@ recovered datasets reinserted (DELETE + COPY). `ind_que` mirrored. CH rows prese
 ### Code
 `MICS-CH/src/patch_fed_grains_yesterday.py` — `_classify()` (multilingual yes/no),
 `RECOVER` (60 BD8C datasets), `_recover()` / `_sav_dir()` (NFC/NFD-robust), `--verify`.
+
+---
+
+## P35 — `CP_fed_grain_based_fortified_baby_food_yesterday` (CH), from BD8B
+
+**Date:** 2026-08-13 · **Module:** CH · **Column:** `CP_fed_grain_based_fortified_baby_food_yesterday`
+
+### Problem
+The commercial fortified baby-food item — **`BD8B`** (a.k.a. `BD8B1`) "Child ate
+fortified baby food (cerelac, gerber, hero, nestum, etc.) yesterday" — was mapped (as
+`infant_fed_fortified_baby_food`) for only **107 datasets**, though `BD8B` is present in
+the raw SAV of **115**.
+
+### Fix (BD8B only)
+`CP_fed_grain_based_fortified_baby_food_yesterday` = harmonized `BD8B`: 1=Yes → 1,
+2=No → 0, sentinels (7 incoherent, 8/9 DK/missing) → NULL. Base 107 mapped datasets
+updated in place; **7 more recovered** from the raw SAV by guarded positional backfill
+(row-count match + `household_number` == SAV HH id ≥ 99.9%), value classified from that
+column's own multilingual labels (verified BD8B = fortified baby food across EN/FR/ES/PT,
+no mis-labels). A broad label sweep found NO fortified-baby-food question outside BD8B —
+it is a MICS5/6-only item, so 115 is the coverage ceiling.
+
+### Result
+**107 → 114 datasets**, **400,790 rows**, values {0,1}, global rate 0.12 (e.g. Dominican
+Republic 0.49, Lesotho 0.08, Cameroon 0.06). 1 skipped: Kosovo-Roma MICS5 (household
+guard 98.2% — same recoding issue as the breastfeeding/grains recoveries).
+
+### DB / Parquet: ✅ Done (2026-08-13)
+Parquet snapshot `ch_merged.parquet.bak_p35`. Mapped datasets updated in place; 7
+recovered reinserted (DELETE + COPY). `ind_que` mirrored. CH rows preserved (1,684,203 / 251).
+
+### Code
+`MICS-CH/src/patch_fed_fortified_baby_food.py` — `_classify()` (multilingual yes/no),
+`RECOVER` (8 BD8B datasets), `_recover()`/`_sav_dir()` (BD8B→BD8B1 fallback, NFC/NFD-robust),
+`--verify`.

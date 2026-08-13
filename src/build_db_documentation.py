@@ -151,7 +151,9 @@ CH: child_age_years (0-4), CP_child_age_months (0-59, 248 datasets — rebuilt f
     CP_breastfeeding_status (3-cat current status: 0 never / 1 stopped / 2 currently;
     241 datasets; derived from ever + still),
     CP_fed_grains_yesterday (ate grains yesterday 1/0; 114 datasets; from raw BD8C
-    only - prefer over dd_grains which conflates broth/rice-water/roots/porridge)
+    only - prefer over dd_grains which conflates broth/rice-water/roots/porridge),
+    CP_fed_grain_based_fortified_baby_food_yesterday (ate fortified baby food /
+    cerelac yesterday 1/0; 114 datasets; from raw BD8B)
 HH: sex_of_household_head (1/2, cleaned)
 
 Full change history: _data_issues (status='fixed', patch_id P01-P10) and
@@ -243,6 +245,14 @@ CATALOG = [
 # ---------------------------------------------------------------------------
 
 HISTORY = [
+    ("P35", "final_CH_MICS", "CP_fed_grain_based_fortified_baby_food_yesterday",
+     "The commercial fortified baby-food item (BD8B, 'ate fortified baby food such as "
+     "cerelac/gerber/nestum yesterday') was mapped for only 107 datasets though BD8B is "
+     "present in 115 raw SAVs.",
+     "Added CP_fed_grain_based_fortified_baby_food_yesterday (1=Yes/0=No/NULL) from BD8B "
+     "only: harmonized the 107 mapped + recovered 7 more whose BD8B was unmapped. 107 -> "
+     "114 datasets; global rate 0.12. 1 skipped (Kosovo-Roma MICS5, household guard 98.2%). "
+     "A broad sweep found no fortified-baby-food question outside BD8B (MICS5/6-only item)."),
     ("P34", "final_CH_MICS", "CP_fed_grains_yesterday",
      "The 24h grains food-group item (BD8C, 'ate bread/rice/noodles/porridge or other "
      "foods made from grains') was mapped for only 55 datasets, though BD8C is present in "
@@ -605,6 +615,8 @@ CURATED: dict[tuple[str, str], str] = {
     ("final_CH_MICS", "infant_fed_milk_yesterday"): "RAW and INCONSISTENT: for ~52 MICS6 datasets this is BD8N='ate cheese/food made from milk' (NOT milk drinking), plus juice/fish in a couple; elsewhere it mixes formula/animal/combined milk. Do NOT use directly — use CP_fed_milk_yesterday. (P31)",
     ("final_CH_MICS", "CP_fed_milk_yesterday"): "Child drank milk yesterday: 1 = drank infant formula OR animal/other milk, 0 = neither, NULL = missing. Re-derived to fix the mis-aligned raw variable (which conflated cheese/juice/fish); animal-milk BD7E recovered from the SAV for 50 MICS6 datasets. 227 datasets. (P31)",
     ("final_CH_MICS", "CP_still_breastfeeding"): "Is the child still being breastfed: 1=Yes, 0=No, NULL=DK/missing. 241 datasets (240 harmonized + 1 recovered). By definition applies to children ever breastfed. (P30)",
+    ("final_CH_MICS", "CP_fed_grain_based_fortified_baby_food_yesterday"): "Child ate commercially fortified (grain-based) baby food yesterday, e.g. Cerelac/Gerber/Nestum: 1=Yes, 0=No, NULL=DK/missing. From raw BD8B only. 114 datasets (107 mapped + 7 recovered). MICS5/6-only item. (P35)",
+    ("final_CH_MICS", "infant_fed_fortified_baby_food"): "Child ate fortified baby food yesterday, RAW (BD8B/BD8B1, 1=Yes/2=No + sentinels); 107 datasets. Use CP_fed_grain_based_fortified_baby_food_yesterday (114). (P35)",
     ("final_CH_MICS", "CP_fed_grains_yesterday"): "Child ate foods made from grains yesterday (bread/rice/noodles/porridge/pasta etc.): 1=Yes, 0=No, NULL=DK/missing. From raw BD8C only. 114 datasets (55 mapped + 59 recovered from unmapped non-English BD8C). Prefer over dd_grains, which conflated BD8C with broth/rice-water/roots/sweets/thin-porridge. (P34)",
     ("final_CH_MICS", "infant_fed_grains_yesterday"): "Child ate foods made from grains yesterday, RAW (BD8C, 1=Yes/2=No + sentinels); only 55 datasets. Use CP_fed_grains_yesterday (114). (P34)",
     ("final_CH_MICS", "dd_grains"): "Dietary-diversity grains flag, RAW and PARTLY MIS-ALIGNED: mostly BD8C (grains) but for ~16 datasets mapped to broth/rice-water/roots/sweets/diarrhoea-gruel/thin-porridge. Do NOT use for a clean grains indicator — use CP_fed_grains_yesterday. (P34)",
