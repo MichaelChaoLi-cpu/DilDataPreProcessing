@@ -163,7 +163,9 @@ CH: child_age_years (0-4), CP_child_age_months (0-59, 248 datasets — rebuilt f
     CP_fed_cheese_other_dairy_yesterday (ate cheese/other milk food yesterday 1/0;
     112 datasets; rebuilt from raw BD8N - dd_dairy was contaminated with yogurt),
     CP_fed_organ_meat_yesterday (ate liver/kidney/heart/organ meat yesterday 1/0;
-    107 datasets; rebuilt from raw BD8I - excludes Pakistan-KP BD8I=eggs mislabel)
+    107 datasets; rebuilt from raw BD8I - excludes Pakistan-KP BD8I=eggs mislabel),
+    CP_fed_meat_poultry_yesterday (ate meat/poultry yesterday 1/0; 108 datasets;
+    rebuilt from raw BD8J - Pakistan-KP reads BD8H, Vietnam BF9-broth excluded)
 HH: sex_of_household_head (1/2, cleaned)
 
 Full change history: _data_issues (status='fixed', patch_id P01-P10) and
@@ -255,6 +257,15 @@ CATALOG = [
 # ---------------------------------------------------------------------------
 
 HISTORY = [
+    ("P41", "final_CH_MICS", "CP_fed_meat_poultry_yesterday",
+     "dd_meat_poultry (flesh-meat/poultry group, raw BD8J) is mis-sourced for a few: "
+     "Pakistan-KP MICS5 BD8J is actually 'fish' (letters shifted; its meat is BD8H), and "
+     "Vietnam MICS4 came from BF9 'meat SOUP/broth' (a liquid, not meat-eating). BD8J present "
+     "in 115 raw SAVs vs 102 mapped.",
+     "Added CP_fed_meat_poultry_yesterday (1=Yes/0=No/NULL), rebuilt fresh from raw BD8J with a "
+     "meat-label (excl soup/broth) + household guard. Shifted-letter datasets read their real "
+     "meat column (Pakistan-KP BD8H, Madagascar-South BF15IX). 102 -> 108 datasets; global rate "
+     "0.26. 8 skipped (household guard)."),
     ("P40", "final_CH_MICS", "CP_fed_organ_meat_yesterday",
      "dd_organ_meat (organ-meat food group, raw BD8I) is single-source but one dataset's "
      "BD8I is mislabelled: Pakistan-KP MICS5 BD8I is actually 'Child ate eggs' (its food-group "
@@ -672,6 +683,8 @@ CURATED: dict[tuple[str, str], str] = {
     ("final_CH_MICS", "infant_fed_milk_yesterday"): "RAW and INCONSISTENT: for ~52 MICS6 datasets this is BD8N='ate cheese/food made from milk' (NOT milk drinking), plus juice/fish in a couple; elsewhere it mixes formula/animal/combined milk. Do NOT use directly — use CP_fed_milk_yesterday. (P31)",
     ("final_CH_MICS", "CP_fed_milk_yesterday"): "Child drank milk yesterday: 1 = drank infant formula OR animal/other milk, 0 = neither, NULL = missing. Re-derived to fix the mis-aligned raw variable (which conflated cheese/juice/fish); animal-milk BD7E recovered from the SAV for 50 MICS6 datasets. 227 datasets. (P31)",
     ("final_CH_MICS", "CP_still_breastfeeding"): "Is the child still being breastfed: 1=Yes, 0=No, NULL=DK/missing. 241 datasets (240 harmonized + 1 recovered). By definition applies to children ever breastfed. (P30)",
+    ("final_CH_MICS", "CP_fed_meat_poultry_yesterday"): "Child ate meat/poultry yesterday (beef, pork, lamb, goat, chicken, duck): 1=Yes, 0=No, NULL=DK/missing. Rebuilt fresh from raw BD8J (meat-label excl soup/broth + household guard). Pakistan-KP reads its real meat BD8H (its BD8J is fish); Vietnam MICS4 (BF9 meat broth) excluded. 108 datasets. (P41)",
+    ("final_CH_MICS", "dd_meat_poultry"): "Dietary-diversity meat/poultry flag, RAW (BD8J). Mis-sourced for a few: Pakistan-KP MICS5 value is fish (BD8J shifted), Vietnam MICS4 is meat broth (BF9). Use CP_fed_meat_poultry_yesterday. (P41)",
     ("final_CH_MICS", "CP_fed_organ_meat_yesterday"): "Child ate liver, kidney, heart or other organ meat yesterday: 1=Yes, 0=No, NULL=DK/missing. Rebuilt fresh from raw BD8I (organ-meat-label + household guard). Excludes Pakistan-KP MICS5 whose BD8I is mislabelled 'eggs' (shifted letters). 107 datasets. (P40)",
     ("final_CH_MICS", "dd_organ_meat"): "Dietary-diversity organ-meat flag, RAW (BD8I). Mostly correct but Pakistan-KP MICS5's value is actually eggs (its BD8I is mislabelled). Use CP_fed_organ_meat_yesterday. (P40)",
     ("final_CH_MICS", "CP_fed_cheese_other_dairy_yesterday"): "Child ate cheese or other food made from milk yesterday (cheese/curd/cottage cheese etc.; excludes yogurt=CP_fed_yogurt and milk-drinking): 1=Yes, 0=No, NULL=DK/missing. Rebuilt fresh from raw BD8N (cheese-label + household guard), NOT from dd_dairy which was contaminated (took BD8A yogurt / BD7P-Q for some datasets). 112 datasets. (P39)",
