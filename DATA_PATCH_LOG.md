@@ -41,6 +41,7 @@ Records post-hoc corrections to canonical variables. Each entry documents what c
 | P28 | 2026-08-05 | WM | `CP_time_to_breastfeed_hours` + `CP_early_initiation_breastfeeding` (<=1h) + `CP_breastfed_within_24h` — early initiation of breastfeeding; unit by label; 36 datasets recovered from unmapped non-English `MN25/MN37/MN13` pairs; 154→190 | ✅ | ✅ | `MICS-WM/src/patch_breastfeed_initiation.py` |
 | P29 | 2026-08-05 | CH | `CP_ever_breastfed` (1=Yes/0=No) — harmonized 205 + recovered 28 datasets whose ever-breastfed column (BF1/BD2) was unmapped due to non-English labels; 205→233 | ✅ | ✅ | `MICS-CH/src/patch_ever_breastfed.py` |
 | P30 | 2026-08-05 | CH | `CP_still_breastfeeding` (1=Yes/0=No) — harmonized 240 + recovered 1 (DR Congo 2001); 240→241, near ceiling | ✅ | ✅ | `MICS-CH/src/patch_still_breastfeeding.py` |
+| P44 | 2026-08-14 | CH | `CP_fed_vitamin_a_vegetables_yesterday` — pumpkin/carrots/squash/orange sweet potato (1/0) from raw BD8D; fixes Fiji/Georgia multi-source; 100 → 107 datasets | ✅ | ✅ | `MICS-CH/src/patch_fed_vitamin_a_veg.py` |
 | P43 | 2026-08-14 | CH | `CP_fed_eggs_yesterday` — eggs (1/0) from raw BD8K; Pakistan-KP reads BD8I (its BD8K=legumes); 101 → 107 datasets | ✅ | ✅ | `MICS-CH/src/patch_fed_eggs.py` |
 | P42 | 2026-08-14 | CH | `CP_fed_fish_seafood_yesterday` — fish/seafood (1/0) from raw BD8L; Pakistan-KP reads BD8J (its BD8L=cheese), Guyana BD8L not BD7C broth; 100 → 108 datasets | ✅ | ✅ | `MICS-CH/src/patch_fed_fish.py` |
 | P41 | 2026-08-14 | CH | `CP_fed_meat_poultry_yesterday` — meat/poultry (1/0) from raw BD8J; Pakistan-KP reads BD8H (its BD8J=fish), Vietnam BF9-broth excluded; 102 → 108 datasets | ✅ | ✅ | `MICS-CH/src/patch_fed_meat_poultry.py` |
@@ -2098,3 +2099,34 @@ Parquet snapshot `ch_merged.parquet.bak_p43`. DB rebuilt via `TRUNCATE` + groupe
 ### Code
 `MICS-CH/src/patch_fed_eggs.py` — `_from_raw()` (BD8K + egg-label + household guard),
 `SPECIAL` (Pakistan-KP BD8I / Madagascar BF15JX), `--verify`.
+
+---
+
+## P44 — `CP_fed_vitamin_a_vegetables_yesterday` (CH), rebuilt from raw BD8D
+
+**Date:** 2026-08-14 · **Module:** CH · **Column:** `CP_fed_vitamin_a_vegetables_yesterday`
+
+### Problem
+The vitamin-A-rich vegetable group is **`BD8D`** "Child ate pumpkin, carrots, squash etc.
+that are yellow or orange inside yesterday". `dd_vitamin_a_veg` (100 datasets) is multi-source
+for **Fiji / Georgia MICS6** (BD7B1/BD7B2 liquids mixed with BD8D). BD8D is present in **115**
+raw SAVs; unlike later letters it has no shift issue (BD8D is correct even for Pakistan-KP).
+
+### Fix (rebuild fresh from raw BD8D)
+Read per dataset from the raw SAV: require `BD8D` present AND its label to be a vit-A vegetable
+item (pumpkin/carrot/squash/sweet potato/yellow-orange…); SAV row count == parquet;
+`household_number` == SAV HH id ≥ 99.9%. Value 1→1, 2→0, 7/8/9→NULL.
+
+### Result
+**100 → 107 datasets**, **393,014 rows**, values {0,1}, global rate 0.19 (Fiji 0.50, Georgia
+0.34, Pakistan-KP 0.12, Nepal 0.09). Fiji/Georgia now read BD8D not the BD7B liquids. 8 skipped:
+id-recoded MICS6 (household guard). Madagascar-South BF15CX (yellow/orange "inside" foods)
+conflates veg+fruit and was left out.
+
+### DB / Parquet: ✅ Done (2026-08-14)
+Parquet snapshot `ch_merged.parquet.bak_p44`. DB rebuilt via `TRUNCATE` + grouped `COPY`
+(1,684,203 rows / 251 datasets preserved). `ind_que` mirrored (source_kind `derived`, BD8D).
+
+### Code
+`MICS-CH/src/patch_fed_vitamin_a_veg.py` — `_from_raw()` (BD8D + vit-A-veg label + household
+guard), `_single_bd8d_datasets()`, `--verify`.

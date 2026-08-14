@@ -169,7 +169,9 @@ CH: child_age_years (0-4), CP_child_age_months (0-59, 248 datasets — rebuilt f
     CP_fed_fish_seafood_yesterday (ate fish/seafood yesterday 1/0; 108 datasets;
     rebuilt from raw BD8L - Pakistan-KP reads BD8J, its BD8L is cheese),
     CP_fed_eggs_yesterday (ate eggs yesterday 1/0; 107 datasets; rebuilt from raw
-    BD8K - Pakistan-KP reads BD8I, its BD8K is legumes)
+    BD8K - Pakistan-KP reads BD8I, its BD8K is legumes),
+    CP_fed_vitamin_a_vegetables_yesterday (ate pumpkin/carrots/squash/orange sweet
+    potato yesterday 1/0; 107 datasets; rebuilt from raw BD8D)
 HH: sex_of_household_head (1/2, cleaned)
 
 Full change history: _data_issues (status='fixed', patch_id P01-P10) and
@@ -261,6 +263,12 @@ CATALOG = [
 # ---------------------------------------------------------------------------
 
 HISTORY = [
+    ("P44", "final_CH_MICS", "CP_fed_vitamin_a_vegetables_yesterday",
+     "dd_vitamin_a_veg (vitamin-A veg group, raw BD8D) is multi-source for Fiji/Georgia MICS6 "
+     "(BD7B1/BD7B2 liquids mixed with BD8D) and covered 100 of 115 BD8D datasets.",
+     "Added CP_fed_vitamin_a_vegetables_yesterday (1=Yes/0=No/NULL), rebuilt fresh from raw BD8D "
+     "with a vit-A-veg label + household guard. No letter-shift (BD8D correct even for Pakistan-KP). "
+     "100 -> 107 datasets; global rate 0.19. 8 skipped (household guard)."),
     ("P43", "final_CH_MICS", "CP_fed_eggs_yesterday",
      "dd_eggs (eggs group, raw BD8K) is mis-sourced for a few: Pakistan-KP MICS5 BD8K is "
      "actually 'beans/legumes' (letters shifted; its eggs are BD8I), and Azerbaijan MICS6-2023 "
@@ -701,6 +709,8 @@ CURATED: dict[tuple[str, str], str] = {
     ("final_CH_MICS", "infant_fed_milk_yesterday"): "RAW and INCONSISTENT: for ~52 MICS6 datasets this is BD8N='ate cheese/food made from milk' (NOT milk drinking), plus juice/fish in a couple; elsewhere it mixes formula/animal/combined milk. Do NOT use directly — use CP_fed_milk_yesterday. (P31)",
     ("final_CH_MICS", "CP_fed_milk_yesterday"): "Child drank milk yesterday: 1 = drank infant formula OR animal/other milk, 0 = neither, NULL = missing. Re-derived to fix the mis-aligned raw variable (which conflated cheese/juice/fish); animal-milk BD7E recovered from the SAV for 50 MICS6 datasets. 227 datasets. (P31)",
     ("final_CH_MICS", "CP_still_breastfeeding"): "Is the child still being breastfed: 1=Yes, 0=No, NULL=DK/missing. 241 datasets (240 harmonized + 1 recovered). By definition applies to children ever breastfed. (P30)",
+    ("final_CH_MICS", "CP_fed_vitamin_a_vegetables_yesterday"): "Child ate vitamin-A-rich vegetables yesterday (pumpkin, carrots, squash, orange sweet potato that are yellow/orange inside): 1=Yes, 0=No, NULL=DK/missing. Rebuilt fresh from raw BD8D (vit-A-veg label + household guard). 107 datasets. (P44)",
+    ("final_CH_MICS", "dd_vitamin_a_veg"): "Dietary-diversity vitamin-A vegetable flag, RAW (BD8D). Multi-source (BD7B1/BD7B2 liquids) for Fiji/Georgia MICS6. Use CP_fed_vitamin_a_vegetables_yesterday. (P44)",
     ("final_CH_MICS", "CP_fed_eggs_yesterday"): "Child ate eggs yesterday: 1=Yes, 0=No, NULL=DK/missing. Rebuilt fresh from raw BD8K (egg-label + household guard). Pakistan-KP reads its real eggs BD8I (its BD8K is legumes). 107 datasets. (P43)",
     ("final_CH_MICS", "dd_eggs"): "Dietary-diversity eggs flag, RAW (BD8K). Mis-sourced for a few: Pakistan-KP MICS5 value is legumes (BD8K shifted), Azerbaijan MICS6-2023 multi-source. Use CP_fed_eggs_yesterday. (P43)",
     ("final_CH_MICS", "CP_fed_fish_seafood_yesterday"): "Child ate fresh or dried fish or shellfish yesterday: 1=Yes, 0=No, NULL=DK/missing. Rebuilt fresh from raw BD8L (fish-label + household guard). Pakistan-KP reads its real fish BD8J (its BD8L is cheese); Guyana reads BD8L not BD7C broth. 108 datasets. (P42)",
