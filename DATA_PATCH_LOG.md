@@ -41,6 +41,7 @@ Records post-hoc corrections to canonical variables. Each entry documents what c
 | P28 | 2026-08-05 | WM | `CP_time_to_breastfeed_hours` + `CP_early_initiation_breastfeeding` (<=1h) + `CP_breastfed_within_24h` — early initiation of breastfeeding; unit by label; 36 datasets recovered from unmapped non-English `MN25/MN37/MN13` pairs; 154→190 | ✅ | ✅ | `MICS-WM/src/patch_breastfeed_initiation.py` |
 | P29 | 2026-08-05 | CH | `CP_ever_breastfed` (1=Yes/0=No) — harmonized 205 + recovered 28 datasets whose ever-breastfed column (BF1/BD2) was unmapped due to non-English labels; 205→233 | ✅ | ✅ | `MICS-CH/src/patch_ever_breastfed.py` |
 | P30 | 2026-08-05 | CH | `CP_still_breastfeeding` (1=Yes/0=No) — harmonized 240 + recovered 1 (DR Congo 2001); 240→241, near ceiling | ✅ | ✅ | `MICS-CH/src/patch_still_breastfeeding.py` |
+| P46 | 2026-08-14 | CH | `CP_fed_vitamin_a_fruits_yesterday` — ripe mango/papaya/apricot/melon etc. (1/0) from raw BD8G; Pakistan-KP reads BD8F; 65 → 108 datasets | ✅ | ✅ | `MICS-CH/src/patch_fed_vitamin_a_fruit.py` |
 | P45 | 2026-08-14 | CH | `CP_fed_dark_green_leafy_vegetables_yesterday` — spinach/broccoli/kale etc. (1/0) from raw BD8F; multilingual green-leafy recovery; 92 → 107 datasets | ✅ | ✅ | `MICS-CH/src/patch_fed_green_leafy.py` |
 | P44 | 2026-08-14 | CH | `CP_fed_vitamin_a_vegetables_yesterday` — pumpkin/carrots/squash/orange sweet potato (1/0) from raw BD8D; fixes Fiji/Georgia multi-source; 100 → 107 datasets | ✅ | ✅ | `MICS-CH/src/patch_fed_vitamin_a_veg.py` |
 | P43 | 2026-08-14 | CH | `CP_fed_eggs_yesterday` — eggs (1/0) from raw BD8K; Pakistan-KP reads BD8I (its BD8K=legumes); 101 → 107 datasets | ✅ | ✅ | `MICS-CH/src/patch_fed_eggs.py` |
@@ -2165,3 +2166,36 @@ Parquet snapshot `ch_merged.parquet.bak_p45`. DB rebuilt via `TRUNCATE` + groupe
 ### Code
 `MICS-CH/src/patch_fed_green_leafy.py` — `_from_raw()` (BD8F + multilingual green-leafy label +
 household guard), `SPECIAL` (Madagascar BF15EX), `--verify`.
+
+---
+
+## P46 — `CP_fed_vitamin_a_fruits_yesterday` (CH), rebuilt from raw BD8G
+
+**Date:** 2026-08-14 · **Module:** CH · **Column:** `CP_fed_vitamin_a_fruits_yesterday`
+
+### Problem
+The vitamin-A-rich fruit group is **`BD8G`** "Child ate ripe mangoes, papayas etc. any other
+vitamin-A-rich fruits yesterday" (locally adapted: mango/papaya in the tropics, apricot/melon/
+persimmon in temperate regions; Algeria uses local figs/apples framed as vit-A fruit).
+`dd_vitamin_a_fruit` covered only **65** of 115 BD8G datasets. Letter-shift: **Pakistan-KP
+MICS5 `BD8G`** is "any other fruits or vegetables" (its vit-A fruit is `BD8F`).
+
+### Fix (rebuild fresh from raw BD8G)
+Read per dataset from the raw SAV: require `BD8G` present AND its label to be a vit-A-fruit item
+(multilingual — mango/mangue/manga/papaya/papaye/apricot/melon/persimmon/guava/"riches en
+Vitamine A"/mûres/maduro…). SAV row count == parquet; `household_number` == SAV HH id ≥ 99.9%.
+Value 1→1, 2→0, 7/8/9→NULL. Shifted-letter datasets read their real vit-A fruit column
+(Pakistan-KP `BD8F`, Madagascar-South `BF15FX`).
+
+### Result
+**65 → 108 datasets** (largest recovery in the food-group series), **395,655 rows**, values
+{0,1}, global rate 0.15 (Algeria 0.15, Cameroon 0.12, Nepal 0.05, Pakistan-KP 0.03). 7 skipped:
+id-recoded MICS6 (household guard).
+
+### DB / Parquet: ✅ Done (2026-08-14)
+Parquet snapshot `ch_merged.parquet.bak_p46`. DB rebuilt via `TRUNCATE` + grouped `COPY`
+(1,684,203 rows / 251 datasets preserved). `ind_que` mirrored (source_kind `derived`, BD8G).
+
+### Code
+`MICS-CH/src/patch_fed_vitamin_a_fruit.py` — `_from_raw()` (BD8G + multilingual vit-A-fruit
+label + household guard), `SPECIAL` (Pakistan-KP BD8F / Madagascar BF15FX), `--verify`.

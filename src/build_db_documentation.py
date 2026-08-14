@@ -173,7 +173,9 @@ CH: child_age_years (0-4), CP_child_age_months (0-59, 248 datasets — rebuilt f
     CP_fed_vitamin_a_vegetables_yesterday (ate pumpkin/carrots/squash/orange sweet
     potato yesterday 1/0; 107 datasets; rebuilt from raw BD8D),
     CP_fed_dark_green_leafy_vegetables_yesterday (ate spinach/broccoli/kale etc.
-    yesterday 1/0; 107 datasets; rebuilt from raw BD8F)
+    yesterday 1/0; 107 datasets; rebuilt from raw BD8F),
+    CP_fed_vitamin_a_fruits_yesterday (ate ripe mango/papaya/apricot/melon etc.
+    yesterday 1/0; 108 datasets; rebuilt from raw BD8G)
 HH: sex_of_household_head (1/2, cleaned)
 
 Full change history: _data_issues (status='fixed', patch_id P01-P10) and
@@ -265,6 +267,14 @@ CATALOG = [
 # ---------------------------------------------------------------------------
 
 HISTORY = [
+    ("P46", "final_CH_MICS", "CP_fed_vitamin_a_fruits_yesterday",
+     "dd_vitamin_a_fruit (vit-A fruit group, raw BD8G) covered only 65 of 115 BD8G datasets. "
+     "Letter-shift: Pakistan-KP MICS5 BD8G is 'any other fruits or vegetables' (its vit-A fruit "
+     "is BD8F).",
+     "Added CP_fed_vitamin_a_fruits_yesterday (1=Yes/0=No/NULL), rebuilt fresh from raw BD8G with "
+     "a vit-A-fruit label guard (multilingual, locally-adapted fruits: mango/papaya/apricot/melon/"
+     "persimmon/'riches en Vitamine A'). Shifted-letter datasets read Pakistan-KP BD8F, Madagascar "
+     "BF15FX. 65 -> 108 datasets; global rate 0.15. 7 skipped (household guard)."),
     ("P45", "final_CH_MICS", "CP_fed_dark_green_leafy_vegetables_yesterday",
      "dd_green_leafy_veg (dark-green-leafy group, raw BD8F) covered 92 datasets; the food-group "
      "letters differ by questionnaire — standard MICS6 BD8F = green leafy, but letter-shifted "
@@ -719,6 +729,8 @@ CURATED: dict[tuple[str, str], str] = {
     ("final_CH_MICS", "infant_fed_milk_yesterday"): "RAW and INCONSISTENT: for ~52 MICS6 datasets this is BD8N='ate cheese/food made from milk' (NOT milk drinking), plus juice/fish in a couple; elsewhere it mixes formula/animal/combined milk. Do NOT use directly — use CP_fed_milk_yesterday. (P31)",
     ("final_CH_MICS", "CP_fed_milk_yesterday"): "Child drank milk yesterday: 1 = drank infant formula OR animal/other milk, 0 = neither, NULL = missing. Re-derived to fix the mis-aligned raw variable (which conflated cheese/juice/fish); animal-milk BD7E recovered from the SAV for 50 MICS6 datasets. 227 datasets. (P31)",
     ("final_CH_MICS", "CP_still_breastfeeding"): "Is the child still being breastfed: 1=Yes, 0=No, NULL=DK/missing. 241 datasets (240 harmonized + 1 recovered). By definition applies to children ever breastfed. (P30)",
+    ("final_CH_MICS", "CP_fed_vitamin_a_fruits_yesterday"): "Child ate vitamin-A-rich fruits yesterday (ripe mangoes, papayas, apricots, ripe melon, persimmon etc. - locally adapted): 1=Yes, 0=No, NULL=DK/missing. Rebuilt fresh from raw BD8G (vit-A-fruit label + household guard). Pakistan-KP reads its real vit-A fruit BD8F (its BD8G is other fruit/veg). 108 datasets. (P46)",
+    ("final_CH_MICS", "dd_vitamin_a_fruit"): "Dietary-diversity vit-A fruit flag, RAW (BD8G); only 65 datasets. Use CP_fed_vitamin_a_fruits_yesterday (108). (P46)",
     ("final_CH_MICS", "CP_fed_dark_green_leafy_vegetables_yesterday"): "Child ate dark green leafy vegetables yesterday (spinach, broccoli, Swiss chard, kale, collard etc.): 1=Yes, 0=No, NULL=DK/missing. Rebuilt fresh from raw BD8F (green-leafy label + household guard). Pakistan-KP has no green-leafy item (its BD8F is vitamin-A fruit) and is excluded. 107 datasets. (P45)",
     ("final_CH_MICS", "dd_green_leafy_veg"): "Dietary-diversity dark-green-leafy flag, RAW (BD8F). Use CP_fed_dark_green_leafy_vegetables_yesterday (107, recovers Spanish/Portuguese-labelled datasets). (P45)",
     ("final_CH_MICS", "CP_fed_vitamin_a_vegetables_yesterday"): "Child ate vitamin-A-rich vegetables yesterday (pumpkin, carrots, squash, orange sweet potato that are yellow/orange inside): 1=Yes, 0=No, NULL=DK/missing. Rebuilt fresh from raw BD8D (vit-A-veg label + household guard). 107 datasets. (P44)",
