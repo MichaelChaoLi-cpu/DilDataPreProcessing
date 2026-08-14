@@ -41,6 +41,7 @@ Records post-hoc corrections to canonical variables. Each entry documents what c
 | P28 | 2026-08-05 | WM | `CP_time_to_breastfeed_hours` + `CP_early_initiation_breastfeeding` (<=1h) + `CP_breastfed_within_24h` — early initiation of breastfeeding; unit by label; 36 datasets recovered from unmapped non-English `MN25/MN37/MN13` pairs; 154→190 | ✅ | ✅ | `MICS-WM/src/patch_breastfeed_initiation.py` |
 | P29 | 2026-08-05 | CH | `CP_ever_breastfed` (1=Yes/0=No) — harmonized 205 + recovered 28 datasets whose ever-breastfed column (BF1/BD2) was unmapped due to non-English labels; 205→233 | ✅ | ✅ | `MICS-CH/src/patch_ever_breastfed.py` |
 | P30 | 2026-08-05 | CH | `CP_still_breastfeeding` (1=Yes/0=No) — harmonized 240 + recovered 1 (DR Congo 2001); 240→241, near ceiling | ✅ | ✅ | `MICS-CH/src/patch_still_breastfeeding.py` |
+| P39 | 2026-08-14 | CH | `CP_fed_cheese_other_dairy_yesterday` — cheese/other milk food (1/0) REBUILT from raw BD8N; fixes dd_dairy contamination (BD8A yogurt / BD7P-Q); 54 → 112 datasets | ✅ | ✅ | `MICS-CH/src/patch_fed_cheese.py` |
 | P38 | 2026-08-14 | CH | `CP_fed_yogurt_yesterday` — drank/ate yogurt (1/0) REBUILT from raw (OR of BD8A + BD7F yogurt-drink); fixes infant_fed_yogurt_yesterday times-count (3/4/7) + cheese contamination; 148 → 155 datasets | ✅ | ✅ | `MICS-CH/src/patch_fed_yogurt.py` |
 | P37 | 2026-08-13 | CH | `CP_fed_pulses_nuts_seeds_yesterday` — beans/peas/lentils/nuts (1/0) REBUILT from raw BD8M; fixes dd_legumes_nuts contamination (BD8G fruit / BD7D formula / IM8-IM12 vaccine); 112 datasets | ✅ | ✅ | `MICS-CH/src/patch_fed_pulses_nuts.py` |
 | P36 | 2026-08-13 | CH | `CP_fed_roots_tubers_plantains_yesterday` — ate white roots/tubers/plantains (1/0) from raw BD8E; harmonized 94 + recovered 19; 94 → 113 datasets | ✅ | ✅ | `MICS-CH/src/patch_fed_roots_tubers.py` |
@@ -1929,3 +1930,37 @@ Parquet snapshot `ch_merged.parquet.bak_p38`. DB rebuilt via `TRUNCATE` + groupe
 ### Code
 `MICS-CH/src/patch_fed_yogurt.py` — `_select_cols()` (yogurt yes/no, excl counts/cheese/
 catch-alls), `_from_raw()` (OR-combine + household guard), `--verify`.
+
+---
+
+## P39 — `CP_fed_cheese_other_dairy_yesterday` (CH), rebuilt from raw BD8N
+
+**Date:** 2026-08-14 · **Module:** CH · **Column:** `CP_fed_cheese_other_dairy_yesterday`
+
+### Problem
+The cheese/other-milk-food group is **`BD8N`** "Child ate cheese or other food made from
+milk yesterday" (distinct from yogurt [P38] and milk-drinking [P31]). The existing
+`dd_dairy` covered only **54 datasets** though `BD8N` is present in **114**, and it was
+contaminated for multi-source datasets — Cameroon/CAR `dd_dairy` == `BD8A` yogurt (Cameroon
+old rate 0.070 yogurt vs true cheese 0.023), Georgia == `BD7P`/`BD7Q1`.
+
+### Fix (rebuild fresh from raw BD8N)
+Read per dataset from the raw SAV: require `BD8N` present AND its label to be a cheese /
+"food made from milk" item; SAV row count == parquet; `household_number` == SAV HH id ≥
+99.9%. Value classified from BD8N's own multilingual labels (1→1, 2→0, 7/8/9→NULL). Two
+shifted-letter cheese items read from their real column (Pakistan-KP `BD8L`, Madagascar-
+South `BF15MX`); single-BD8N id-recoded datasets kept from the merged value.
+
+### Result
+**54 → 112 datasets**, **401,469 rows**, values {0,1}, global rate 0.12 (Algeria 0.35,
+Pakistan-KP 0.11, Nepal 0.05). 4 skipped: Kosovo/Montenegro/N. Macedonia-Roma MICS6
+(unmapped dd_dairy + household guard fail). Mixed cheese+yogurt MICS4 items (Cameroon-2006
+bf3i, CAR BF19L, Ghana DD1Q) left out to avoid double-counting yogurt.
+
+### DB / Parquet: ✅ Done (2026-08-14)
+Parquet snapshot `ch_merged.parquet.bak_p39`. DB rebuilt via `TRUNCATE` + grouped `COPY`
+(1,684,203 rows / 251 datasets preserved). `ind_que` mirrored (source_kind `derived`, BD8N).
+
+### Code
+`MICS-CH/src/patch_fed_cheese.py` — `_from_raw()` (BD8N + cheese-label + household guard),
+`SPECIAL` (BD8L/BF15MX), `_single_bd8n_datasets()` (trusted fallback), `--verify`.

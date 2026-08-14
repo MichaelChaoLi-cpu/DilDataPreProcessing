@@ -159,7 +159,9 @@ CH: child_age_years (0-4), CP_child_age_months (0-59, 248 datasets — rebuilt f
     CP_fed_pulses_nuts_seeds_yesterday (ate beans/peas/lentils/nuts yesterday 1/0;
     112 datasets; rebuilt from raw BD8M - dd_legumes_nuts was contaminated),
     CP_fed_yogurt_yesterday (drank/ate yogurt yesterday 1/0; 155 datasets; rebuilt
-    from raw BD8A+BD7F - infant_fed_yogurt_yesterday mixed in times-counts/cheese)
+    from raw BD8A+BD7F - infant_fed_yogurt_yesterday mixed in times-counts/cheese),
+    CP_fed_cheese_other_dairy_yesterday (ate cheese/other milk food yesterday 1/0;
+    112 datasets; rebuilt from raw BD8N - dd_dairy was contaminated with yogurt)
 HH: sex_of_household_head (1/2, cleaned)
 
 Full change history: _data_issues (status='fixed', patch_id P01-P10) and
@@ -251,6 +253,15 @@ CATALOG = [
 # ---------------------------------------------------------------------------
 
 HISTORY = [
+    ("P39", "final_CH_MICS", "CP_fed_cheese_other_dairy_yesterday",
+     "dd_dairy (cheese/other-milk-food group, raw BD8N) covered only 54 datasets though "
+     "BD8N is present in 114; and it was contaminated for multi-source datasets (Cameroon/"
+     "CAR == BD8A yogurt, Georgia == BD7P/BD7Q1).",
+     "Added CP_fed_cheese_other_dairy_yesterday (1=Yes/0=No/NULL), rebuilt fresh from raw "
+     "BD8N with a cheese/dairy-label + household guard (never trusting the contaminated "
+     "merged column). Shifted-letter cheese items read from their real column (Pakistan-KP "
+     "BD8L, Madagascar-South BF15MX); single-BD8N id-recoded datasets kept from merged value. "
+     "54 -> 112 datasets; global rate 0.12. 4 skipped (unmapped + household guard fail)."),
     ("P38", "final_CH_MICS", "CP_fed_yogurt_yesterday",
      "infant_fed_yogurt_yesterday (148 datasets) was contaminated: it mixed the yes/no "
      "yogurt item (BD8A/BF13) with its TIMES-count companion (BD8A1/BD8AN/BF14 'Times "
@@ -650,6 +661,8 @@ CURATED: dict[tuple[str, str], str] = {
     ("final_CH_MICS", "infant_fed_milk_yesterday"): "RAW and INCONSISTENT: for ~52 MICS6 datasets this is BD8N='ate cheese/food made from milk' (NOT milk drinking), plus juice/fish in a couple; elsewhere it mixes formula/animal/combined milk. Do NOT use directly — use CP_fed_milk_yesterday. (P31)",
     ("final_CH_MICS", "CP_fed_milk_yesterday"): "Child drank milk yesterday: 1 = drank infant formula OR animal/other milk, 0 = neither, NULL = missing. Re-derived to fix the mis-aligned raw variable (which conflated cheese/juice/fish); animal-milk BD7E recovered from the SAV for 50 MICS6 datasets. 227 datasets. (P31)",
     ("final_CH_MICS", "CP_still_breastfeeding"): "Is the child still being breastfed: 1=Yes, 0=No, NULL=DK/missing. 241 datasets (240 harmonized + 1 recovered). By definition applies to children ever breastfed. (P30)",
+    ("final_CH_MICS", "CP_fed_cheese_other_dairy_yesterday"): "Child ate cheese or other food made from milk yesterday (cheese/curd/cottage cheese etc.; excludes yogurt=CP_fed_yogurt and milk-drinking): 1=Yes, 0=No, NULL=DK/missing. Rebuilt fresh from raw BD8N (cheese-label + household guard), NOT from dd_dairy which was contaminated (took BD8A yogurt / BD7P-Q for some datasets). 112 datasets. (P39)",
+    ("final_CH_MICS", "dd_dairy"): "Dietary-diversity dairy flag, RAW and CONTAMINATED: covered only 54 datasets and for multi-source ones the merge took the wrong column (Cameroon/CAR = BD8A yogurt, Georgia = BD7P/BD7Q1). Do NOT use - use CP_fed_cheese_other_dairy_yesterday. (P39)",
     ("final_CH_MICS", "CP_fed_yogurt_yesterday"): "Child drank or ate yogurt yesterday: 1=Yes, 0=No, NULL=DK/missing. Rebuilt fresh from raw (OR of every yogurt yes/no column: BD8A drank/ate, BD7F/BD7F2 yogurt drinks, BF13 MICS4, BF3I received). NOT from infant_fed_yogurt_yesterday which was contaminated with times-counts (values 3/4/7) and cheese/mixed-dairy. 155 datasets. (P38)",
     ("final_CH_MICS", "infant_fed_yogurt_yesterday"): "Child ate/drank yogurt yesterday, RAW and CONTAMINATED: mixed the yes/no item (BD8A/BF13) with its times-count companion (BD8A1/BD8AN/BF14, values 3/4/7) plus some cheese/mixed-dairy columns. Do NOT use — use CP_fed_yogurt_yesterday. (P38)",
     ("final_CH_MICS", "CP_fed_pulses_nuts_seeds_yesterday"): "Child ate beans, peas, lentils, nuts or seeds yesterday: 1=Yes, 0=No, NULL=DK/missing. Rebuilt fresh from raw BD8M (legumes-label + household guard), NOT from dd_legumes_nuts which was contaminated (took BD8G fruit / BD7D formula / IM8-IM12 immunization for some datasets). 112 datasets. (P37)",
