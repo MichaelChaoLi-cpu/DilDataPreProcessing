@@ -161,7 +161,9 @@ CH: child_age_years (0-4), CP_child_age_months (0-59, 248 datasets — rebuilt f
     CP_fed_yogurt_yesterday (drank/ate yogurt yesterday 1/0; 155 datasets; rebuilt
     from raw BD8A+BD7F - infant_fed_yogurt_yesterday mixed in times-counts/cheese),
     CP_fed_cheese_other_dairy_yesterday (ate cheese/other milk food yesterday 1/0;
-    112 datasets; rebuilt from raw BD8N - dd_dairy was contaminated with yogurt)
+    112 datasets; rebuilt from raw BD8N - dd_dairy was contaminated with yogurt),
+    CP_fed_organ_meat_yesterday (ate liver/kidney/heart/organ meat yesterday 1/0;
+    107 datasets; rebuilt from raw BD8I - excludes Pakistan-KP BD8I=eggs mislabel)
 HH: sex_of_household_head (1/2, cleaned)
 
 Full change history: _data_issues (status='fixed', patch_id P01-P10) and
@@ -253,6 +255,15 @@ CATALOG = [
 # ---------------------------------------------------------------------------
 
 HISTORY = [
+    ("P40", "final_CH_MICS", "CP_fed_organ_meat_yesterday",
+     "dd_organ_meat (organ-meat food group, raw BD8I) is single-source but one dataset's "
+     "BD8I is mislabelled: Pakistan-KP MICS5 BD8I is actually 'Child ate eggs' (its food-group "
+     "letters are shifted; it has no separate organ-meat item), so its dd_organ_meat value was "
+     "eggs. BD8I present in 115 raw SAVs vs 100 mapped.",
+     "Added CP_fed_organ_meat_yesterday (1=Yes/0=No/NULL), rebuilt fresh from raw BD8I with an "
+     "organ-meat-label + household guard (rejects Pakistan-KP eggs). Madagascar-South reads its "
+     "shifted column BF15HX. 100 -> 107 datasets; global rate 0.06. 9 skipped (Pakistan-KP eggs "
+     "+ 8 household guard fails)."),
     ("P39", "final_CH_MICS", "CP_fed_cheese_other_dairy_yesterday",
      "dd_dairy (cheese/other-milk-food group, raw BD8N) covered only 54 datasets though "
      "BD8N is present in 114; and it was contaminated for multi-source datasets (Cameroon/"
@@ -661,6 +672,8 @@ CURATED: dict[tuple[str, str], str] = {
     ("final_CH_MICS", "infant_fed_milk_yesterday"): "RAW and INCONSISTENT: for ~52 MICS6 datasets this is BD8N='ate cheese/food made from milk' (NOT milk drinking), plus juice/fish in a couple; elsewhere it mixes formula/animal/combined milk. Do NOT use directly — use CP_fed_milk_yesterday. (P31)",
     ("final_CH_MICS", "CP_fed_milk_yesterday"): "Child drank milk yesterday: 1 = drank infant formula OR animal/other milk, 0 = neither, NULL = missing. Re-derived to fix the mis-aligned raw variable (which conflated cheese/juice/fish); animal-milk BD7E recovered from the SAV for 50 MICS6 datasets. 227 datasets. (P31)",
     ("final_CH_MICS", "CP_still_breastfeeding"): "Is the child still being breastfed: 1=Yes, 0=No, NULL=DK/missing. 241 datasets (240 harmonized + 1 recovered). By definition applies to children ever breastfed. (P30)",
+    ("final_CH_MICS", "CP_fed_organ_meat_yesterday"): "Child ate liver, kidney, heart or other organ meat yesterday: 1=Yes, 0=No, NULL=DK/missing. Rebuilt fresh from raw BD8I (organ-meat-label + household guard). Excludes Pakistan-KP MICS5 whose BD8I is mislabelled 'eggs' (shifted letters). 107 datasets. (P40)",
+    ("final_CH_MICS", "dd_organ_meat"): "Dietary-diversity organ-meat flag, RAW (BD8I). Mostly correct but Pakistan-KP MICS5's value is actually eggs (its BD8I is mislabelled). Use CP_fed_organ_meat_yesterday. (P40)",
     ("final_CH_MICS", "CP_fed_cheese_other_dairy_yesterday"): "Child ate cheese or other food made from milk yesterday (cheese/curd/cottage cheese etc.; excludes yogurt=CP_fed_yogurt and milk-drinking): 1=Yes, 0=No, NULL=DK/missing. Rebuilt fresh from raw BD8N (cheese-label + household guard), NOT from dd_dairy which was contaminated (took BD8A yogurt / BD7P-Q for some datasets). 112 datasets. (P39)",
     ("final_CH_MICS", "dd_dairy"): "Dietary-diversity dairy flag, RAW and CONTAMINATED: covered only 54 datasets and for multi-source ones the merge took the wrong column (Cameroon/CAR = BD8A yogurt, Georgia = BD7P/BD7Q1). Do NOT use - use CP_fed_cheese_other_dairy_yesterday. (P39)",
     ("final_CH_MICS", "CP_fed_yogurt_yesterday"): "Child drank or ate yogurt yesterday: 1=Yes, 0=No, NULL=DK/missing. Rebuilt fresh from raw (OR of every yogurt yes/no column: BD8A drank/ate, BD7F/BD7F2 yogurt drinks, BF13 MICS4, BF3I received). NOT from infant_fed_yogurt_yesterday which was contaminated with times-counts (values 3/4/7) and cheese/mixed-dairy. 155 datasets. (P38)",

@@ -41,6 +41,7 @@ Records post-hoc corrections to canonical variables. Each entry documents what c
 | P28 | 2026-08-05 | WM | `CP_time_to_breastfeed_hours` + `CP_early_initiation_breastfeeding` (<=1h) + `CP_breastfed_within_24h` — early initiation of breastfeeding; unit by label; 36 datasets recovered from unmapped non-English `MN25/MN37/MN13` pairs; 154→190 | ✅ | ✅ | `MICS-WM/src/patch_breastfeed_initiation.py` |
 | P29 | 2026-08-05 | CH | `CP_ever_breastfed` (1=Yes/0=No) — harmonized 205 + recovered 28 datasets whose ever-breastfed column (BF1/BD2) was unmapped due to non-English labels; 205→233 | ✅ | ✅ | `MICS-CH/src/patch_ever_breastfed.py` |
 | P30 | 2026-08-05 | CH | `CP_still_breastfeeding` (1=Yes/0=No) — harmonized 240 + recovered 1 (DR Congo 2001); 240→241, near ceiling | ✅ | ✅ | `MICS-CH/src/patch_still_breastfeeding.py` |
+| P40 | 2026-08-14 | CH | `CP_fed_organ_meat_yesterday` — liver/kidney/heart/organ meat (1/0) from raw BD8I; excludes Pakistan-KP BD8I=eggs mislabel; 100 → 107 datasets | ✅ | ✅ | `MICS-CH/src/patch_fed_organ_meat.py` |
 | P39 | 2026-08-14 | CH | `CP_fed_cheese_other_dairy_yesterday` — cheese/other milk food (1/0) REBUILT from raw BD8N; fixes dd_dairy contamination (BD8A yogurt / BD7P-Q); 54 → 112 datasets | ✅ | ✅ | `MICS-CH/src/patch_fed_cheese.py` |
 | P38 | 2026-08-14 | CH | `CP_fed_yogurt_yesterday` — drank/ate yogurt (1/0) REBUILT from raw (OR of BD8A + BD7F yogurt-drink); fixes infant_fed_yogurt_yesterday times-count (3/4/7) + cheese contamination; 148 → 155 datasets | ✅ | ✅ | `MICS-CH/src/patch_fed_yogurt.py` |
 | P37 | 2026-08-13 | CH | `CP_fed_pulses_nuts_seeds_yesterday` — beans/peas/lentils/nuts (1/0) REBUILT from raw BD8M; fixes dd_legumes_nuts contamination (BD8G fruit / BD7D formula / IM8-IM12 vaccine); 112 datasets | ✅ | ✅ | `MICS-CH/src/patch_fed_pulses_nuts.py` |
@@ -1964,3 +1965,37 @@ Parquet snapshot `ch_merged.parquet.bak_p39`. DB rebuilt via `TRUNCATE` + groupe
 ### Code
 `MICS-CH/src/patch_fed_cheese.py` — `_from_raw()` (BD8N + cheese-label + household guard),
 `SPECIAL` (BD8L/BF15MX), `_single_bd8n_datasets()` (trusted fallback), `--verify`.
+
+---
+
+## P40 — `CP_fed_organ_meat_yesterday` (CH), rebuilt from raw BD8I
+
+**Date:** 2026-08-14 · **Module:** CH · **Column:** `CP_fed_organ_meat_yesterday`
+
+### Problem
+The organ-meat food group is **`BD8I`** "Child ate liver, kidney, heart or other organ
+meat yesterday". `dd_organ_meat` (100 datasets) is single-source but one dataset's BD8I is
+mislabelled: **Pakistan-KP MICS5 `BD8I` == "Child ate eggs"** — its food-group letters are
+shifted (BD8H meat / BD8I eggs / BD8J fish …) and it has no separate organ-meat item, so
+its `dd_organ_meat` value was actually eggs. BD8I is present in **115** raw SAVs vs 100 mapped.
+
+### Fix (rebuild fresh from raw BD8I)
+Read per dataset from the raw SAV: require `BD8I` present AND its label to be an organ-meat
+item (liver/kidney/heart/foie/rognon/abats/vísceras…); SAV row count == parquet;
+`household_number` == SAV HH id ≥ 99.9%. Value classified from BD8I's own multilingual
+labels (1→1, 2→0, 7/8/9→NULL). Madagascar-South MICS4 reads its shifted column `BF15HX`.
+
+### Result
+**100 → 107 datasets**, **382,785 rows**, values {0,1}, global rate 0.06 (Nepal 0.08,
+Algeria 0.05, Madagascar 0.01). Pakistan-KP correctly excluded (BD8I=eggs). 8 more skipped:
+id-recoded MICS6 (Guinea Bissau/Kosovo/Montenegro/N. Macedonia-Roma/Sao Tome, household
+guard). Overlooked MICS4 organ-meat under other codes (Ghana DD1L, CAR BF19G, Mali BF16G)
+left out (BD8I-only scope).
+
+### DB / Parquet: ✅ Done (2026-08-14)
+Parquet snapshot `ch_merged.parquet.bak_p40`. DB rebuilt via `TRUNCATE` + grouped `COPY`
+(1,684,203 rows / 251 datasets preserved). `ind_que` mirrored (source_kind `derived`, BD8I).
+
+### Code
+`MICS-CH/src/patch_fed_organ_meat.py` — `_from_raw()` (BD8I + organ-label + household guard),
+`SPECIAL` (Madagascar BF15HX), `_single_bd8i_datasets()`, `--verify`.
