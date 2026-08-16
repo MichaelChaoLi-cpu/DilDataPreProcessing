@@ -22,7 +22,13 @@ Per-dataset grade semantics
   attended-coding (label says "attended"): grade−1 when the completion flag
     (education_grade_completed / ever_completed_grade) == 2 (No)
   cumulative-coding (>=10% of primary-level grades exceed prim_dur+1):
-    years = grade directly
+    PER RECORD — a grade that fits within its level (grade <= level_dur+1) is a
+    restarted within-level count → base + grade; a grade that exceeds it is a
+    cumulative class count → grade directly. This handles hybrid systems (e.g.
+    Tunisia: basic 1-9 continuous, but upper-secondary AND higher RESTART at 1)
+    that a single cumulative/per-level flag gets wrong (P49). For "higher": grade
+    <=9 → base+grade (within-tertiary years); grade >= base → grade (cumulative);
+    in-between (implausible as tertiary years) → base+2 estimate.
 
 Missing grade with known level → midpoint estimate (base + level_dur/2;
 higher → base+2), flagged *_estimated = 1. "Never attended school" → 0, exact.
@@ -245,14 +251,30 @@ def build_years(
         known = np.isfinite(fl) & (fl >= 0)
         with_g = known & np.isfinite(g)
         if cumulative:
-            # grade is a cumulative class count → years = grade for school levels;
-            # school grade says nothing about tertiary years → midpoint estimate
-            sch_g = with_g & (fl != 3.0)
-            y[sch_g] = g[sch_g]
-            e[sch_g] = 0
-            higher = known & (fl == 3.0)
-            y[higher] = base[higher] + 2.0
-            e[higher] = 1
+            # Per-record: a grade that fits WITHIN its level (<= level_dur+1) is a
+            # restarted within-level count → base + grade; a grade that exceeds it is
+            # a cumulative class count → grade directly. This handles hybrid systems
+            # (e.g. Tunisia: basic 1-9 continuous, but upper-secondary and higher
+            # RESTART at 1) that a single cumulative/per-level flag gets wrong.
+            sch = with_g & (fl != 3.0) & np.isfinite(level_dur)
+            restart = sch & (g <= level_dur + 1)
+            cumul = sch & (g > level_dur + 1)
+            y[restart] = base[restart] + g[restart]
+            y[cumul] = g[cumul]
+            e[sch] = 0
+            # higher: a small grade (<=9) is a plausible within-tertiary year count
+            # (restarted) → base + grade; a grade >= base is already cumulative → grade;
+            # an in-between grade (10..base-1) is implausible as tertiary years (usually a
+            # school grade mis-filed under "higher") → fall back to the base+2 estimate.
+            higher = with_g & (fl == 3.0)
+            h_small = higher & (g <= 9)
+            h_cumul = higher & (g >= base)
+            h_amb = higher & (g > 9) & (g < base)
+            y[h_small] = base[h_small] + g[h_small]
+            y[h_cumul] = g[h_cumul]
+            y[h_amb] = base[h_amb] + 2.0
+            e[higher] = 0
+            e[h_amb] = 1
         else:
             y[with_g] = base[with_g] + g[with_g]
             e[with_g] = 0

@@ -44,6 +44,7 @@ Records post-hoc corrections to canonical variables. Each entry documents what c
 | P47 | 2026-08-15 | CH | `CP_fed_other_fruit_vegetables_yesterday` — other fruits/vegetables (1/0) from raw BD8H OR BD8F1; Pakistan-KP reads BD8G; 89 → 116 datasets | ✅ | ✅ | `MICS-CH/src/patch_fed_other_fruit_veg.py` |
 | P47B | 2026-08-15 | CH | mojibake fix: Portuguese 'Não' saved as 'NÃ£o' made `_classify` drop 'No' → Sao Tome MICS5 rate=1.0 across P34–P46; fixed classifier + re-derived all 13 food groups for that dataset | ✅ | ✅ | (all `patch_fed_*` scripts) |
 | P48 | 2026-08-16 | CH | `CP_fed_sweets_yesterday` — sugary/sweet foods (1/0) from raw by label (BD8O/BD8P/BD8Q/BF16M/BF19N/DD1S); add-on question, only 11 datasets | ✅ | ✅ | `MICS-CH/src/patch_fed_sweets.py` |
+| P49 | 2026-08-16 | WM/HL/CH | `CP_education_years` fix — cumulative-branch reworked per-record (base+grade vs grade); fixes higher-ed flat-15 (~22 datasets) + hybrid upper-secondary undercount (Tunisia); re-ran P09 | ✅ | ✅ | `MICS-WM/src/patch_education_years.py` |
 | P46 | 2026-08-14 | CH | `CP_fed_vitamin_a_fruits_yesterday` — ripe mango/papaya/apricot/melon etc. (1/0) from raw BD8G; Pakistan-KP reads BD8F; 65 → 108 datasets | ✅ | ✅ | `MICS-CH/src/patch_fed_vitamin_a_fruit.py` |
 | P45 | 2026-08-14 | CH | `CP_fed_dark_green_leafy_vegetables_yesterday` — spinach/broccoli/kale etc. (1/0) from raw BD8F; multilingual green-leafy recovery; 92 → 107 datasets | ✅ | ✅ | `MICS-CH/src/patch_fed_green_leafy.py` |
 | P44 | 2026-08-14 | CH | `CP_fed_vitamin_a_vegetables_yesterday` — pumpkin/carrots/squash/orange sweet potato (1/0) from raw BD8D; fixes Fiji/Georgia multi-source; 100 → 107 datasets | ✅ | ✅ | `MICS-CH/src/patch_fed_vitamin_a_veg.py` |
@@ -2282,3 +2283,45 @@ Parquet snapshot `ch_merged.parquet.bak_p48`. DB rebuilt via `TRUNCATE` + groupe
 ### Code
 `MICS-CH/src/patch_fed_sweets.py` — `_select_cols()` (sugary-food label, excl drinks/solutions),
 `_from_raw()`, `_classify()` (mojibake-safe), `--verify`.
+
+---
+
+## P49 — `CP_education_years` derivation fix (WM/HL/CH) — cumulative-branch rework
+
+**Date:** 2026-08-16 · **Modules:** WM, HL, CH · **Columns:** `CP_education_years`
+(+`_estimated`), `CP_mother_education_years` (+`_estimated`)
+
+### Problem (reported for Tunisia MICS6, found systemic)
+The P09 years-of-schooling formula is `years = base(level) + grade_within_level`, with a
+per-dataset "cumulative-coding" branch (grade is a running class count → `years = grade`).
+That branch had two faults:
+1. **Higher education**: it ignored the real grade and flat-set `base+2` (≈15, flagged
+   *estimated*). ~22 WM datasets carried a genuine higher-ed grade that was discarded
+   (Tunisia, Fiji, Montenegro, N. Macedonia, Zimbabwe, Tonga, Guinea, …).
+2. **Hybrid grade numbering**: Tunisia numbers **basic education 1-9 continuously**
+   (primary 1-6 + lower-secondary 7-9), then **upper-secondary RESTARTS at 1-4** and higher
+   at 1-9. The cumulative branch applied `years = grade` everywhere, so upper-secondary got
+   0-4 (≈9 years too low) and higher collapsed to flat 15.
+
+### Fix (decide per record, not per dataset)
+In the cumulative branch:
+- school levels: `grade <= level_dur+1` → restarted within-level → `base + grade`; else →
+  cumulative → `grade`.
+- higher: `grade <= 9` → within-tertiary years → `base + grade`; `grade >= base` → already
+  cumulative → `grade`; in-between (implausible as tertiary years, usually a school grade
+  mis-filed under "higher") → `base+2` estimate.
+This is neutral for pure-cumulative and pure-per-level datasets and only corrects the
+mis-handled higher-ed and hybrid cases.
+
+### Result
+Tunisia MICS6: upper-secondary **0-4 → 9-13**, higher **flat 15(est) → 13-22**. Across WM,
+**0** datasets remain flat-15-estimated while carrying a real 1-9 higher grade. Re-ran P09 for
+all three modules (WM 2,618,569 non-null / 241 ds; HL 8,510,070; CH mother 1,619,710).
+
+### DB / Parquet: ✅ Done (2026-08-16)
+Parquet re-derived (base + `CP_` duplicates resynced); `final_WM/HL/CH` rebuilt via
+`TRUNCATE` + grouped `COPY` from parquet (row counts preserved: 2,960,835 / 11,747,970 /
+1,684,203); `ind_que` untouched. No snapshots needed beyond parquet (source of truth).
+
+### Code
+`MICS-WM/src/patch_education_years.py` — `build_years()` cumulative branch.
