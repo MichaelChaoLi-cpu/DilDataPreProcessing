@@ -41,6 +41,8 @@ Records post-hoc corrections to canonical variables. Each entry documents what c
 | P28 | 2026-08-05 | WM | `CP_time_to_breastfeed_hours` + `CP_early_initiation_breastfeeding` (<=1h) + `CP_breastfed_within_24h` — early initiation of breastfeeding; unit by label; 36 datasets recovered from unmapped non-English `MN25/MN37/MN13` pairs; 154→190 | ✅ | ✅ | `MICS-WM/src/patch_breastfeed_initiation.py` |
 | P29 | 2026-08-05 | CH | `CP_ever_breastfed` (1=Yes/0=No) — harmonized 205 + recovered 28 datasets whose ever-breastfed column (BF1/BD2) was unmapped due to non-English labels; 205→233 | ✅ | ✅ | `MICS-CH/src/patch_ever_breastfed.py` |
 | P30 | 2026-08-05 | CH | `CP_still_breastfeeding` (1=Yes/0=No) — harmonized 240 + recovered 1 (DR Congo 2001); 240→241, near ceiling | ✅ | ✅ | `MICS-CH/src/patch_still_breastfeeding.py` |
+| P47 | 2026-08-15 | CH | `CP_fed_other_fruit_vegetables_yesterday` — other fruits/vegetables (1/0) from raw BD8H OR BD8F1; Pakistan-KP reads BD8G; 89 → 116 datasets | ✅ | ✅ | `MICS-CH/src/patch_fed_other_fruit_veg.py` |
+| P47B | 2026-08-15 | CH | mojibake fix: Portuguese 'Não' saved as 'NÃ£o' made `_classify` drop 'No' → Sao Tome MICS5 rate=1.0 across P34–P46; fixed classifier + re-derived all 13 food groups for that dataset | ✅ | ✅ | (all `patch_fed_*` scripts) |
 | P46 | 2026-08-14 | CH | `CP_fed_vitamin_a_fruits_yesterday` — ripe mango/papaya/apricot/melon etc. (1/0) from raw BD8G; Pakistan-KP reads BD8F; 65 → 108 datasets | ✅ | ✅ | `MICS-CH/src/patch_fed_vitamin_a_fruit.py` |
 | P45 | 2026-08-14 | CH | `CP_fed_dark_green_leafy_vegetables_yesterday` — spinach/broccoli/kale etc. (1/0) from raw BD8F; multilingual green-leafy recovery; 92 → 107 datasets | ✅ | ✅ | `MICS-CH/src/patch_fed_green_leafy.py` |
 | P44 | 2026-08-14 | CH | `CP_fed_vitamin_a_vegetables_yesterday` — pumpkin/carrots/squash/orange sweet potato (1/0) from raw BD8D; fixes Fiji/Georgia multi-source; 100 → 107 datasets | ✅ | ✅ | `MICS-CH/src/patch_fed_vitamin_a_veg.py` |
@@ -2199,3 +2201,50 @@ Parquet snapshot `ch_merged.parquet.bak_p46`. DB rebuilt via `TRUNCATE` + groupe
 ### Code
 `MICS-CH/src/patch_fed_vitamin_a_fruit.py` — `_from_raw()` (BD8G + multilingual vit-A-fruit
 label + household guard), `SPECIAL` (Pakistan-KP BD8F / Madagascar BF15FX), `--verify`.
+
+---
+
+## P47 — `CP_fed_other_fruit_vegetables_yesterday` (CH), from raw BD8H (+ BD8F1)
+
+**Date:** 2026-08-15 · **Module:** CH · **Column:** `CP_fed_other_fruit_vegetables_yesterday`
+
+### Problem
+The catch-all other-fruit/vegetable group is **`BD8H`** "Child ate other fruits or vegetables
+yesterday". `dd_other_fruit_veg` covered 89 of 115 BD8H datasets, was multi-source for Fiji/
+Georgia MICS6, and the letter-shifted **Pakistan-KP MICS5 `BD8H` is "meat"** (its other-fruit/
+veg is `BD8G`). Some **MICS6-2023** surveys (Azerbaijan, Kyrgyzstan, Lao) add **`BD8F1`** "any
+other vegetables (tomatoes/cucumbers/eggplants)" — a child who only ate those would be missed
+by BD8H alone.
+
+### Fix (rebuild fresh from raw, BD8H OR BD8F1)
+Read per dataset from the raw SAV: require `BD8H` present AND label is an other-fruit/veg item
+(multilingual; rejects the shifted Pakistan-KP "meat"); OR-combine with `BD8F1` when its label
+is "other vegetables". SAV row count == parquet; `household_number` == SAV HH id ≥ 99.9%.
+Shifted datasets read Pakistan-KP `BD8G`, Madagascar-South `BF15GX`. Value 1→1, 2→0, 7/8/9→NULL.
+
+### Result
+**89 → 116 datasets** (highest coverage in the series), **404,094 rows**, values {0,1}, global
+rate 0.27. 8 id-recoded MICS6 datasets kept via the single-BD8H merged-value fallback.
+
+### DB / Parquet: ✅ Done (2026-08-15)
+Parquet snapshot `ch_merged.parquet.bak_p47`. DB rebuilt via `TRUNCATE` + grouped `COPY`.
+`ind_que` mirrored (source_kind `derived`, BD8H).
+
+---
+
+## P47B — mojibake value-label fix (all `patch_fed_*` food-group patches)
+
+**Date:** 2026-08-15 · **Module:** CH
+
+### Problem
+The dietary-item classifier `_classify` matched value-label TEXT to decide yes/no. Portuguese
+"Não" (No) is stored as mojibake **"NÃ£o"** in some SAVs, which folded to "na£o" and failed the
+"no" pattern → the "No" answers were dropped to NULL, leaving only "Yes". **Sao Tome & Principe
+MICS5** consequently showed **rate = 1.0** for ALL 13 food groups (P34–P46).
+
+### Fix
+`_classify` now (a) strips non-letter characters after folding, so "NÃ£o"→"nao" matches "no",
+and (b) treats "sabe"/"ne sait" as Don't-Know. Propagated to all 13 `patch_fed_*` scripts. The
+one affected dataset (Sao Tome MICS5) had all 13 food-group columns re-derived from raw with the
+corrected classifier (code 1→1/2→0); an audit confirms **0 remaining rate=1.0 datasets** across
+the 14 food-group columns. parquet + DB updated for that dataset. Only Sao Tome MICS5 was affected.

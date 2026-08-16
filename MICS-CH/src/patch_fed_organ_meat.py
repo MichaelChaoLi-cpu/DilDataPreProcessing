@@ -58,10 +58,16 @@ def _fold(x):
     return "".join(c for c in unicodedata.normalize("NFKD", str(x)) if not unicodedata.combining(c)).lower()
 
 
+def _fold_ascii(x):
+    """Fold AND drop non-letter chars so mojibake labels still match (e.g. Portuguese
+    'Não' stored as 'NÃ£o' -> 'nao')."""
+    return re.sub(r"[^a-z ]", "", _fold(x))
+
+
 _YES = re.compile(r"^(yes|oui|s[ií]|sim|da)\b")
 _NO = re.compile(r"^(no|non|n[ãa]o)\b")
 _MISS = re.compile(r"(dk|nsp|no sabe|missing|manquant|omit|special|ns\b|don.?t|no response|"
-                   r"no responde|em falta|incoheren|incohéren)")
+                   r"no responde|em falta|incoheren|incoheren|\bsabe\b|ne sait|nsp)")
 
 
 def _classify(vl):
@@ -71,7 +77,7 @@ def _classify(vl):
             code = float(k)
         except (TypeError, ValueError):
             continue
-        f = _fold(v)
+        f = _fold_ascii(v)
         if _MISS.search(f):
             out[code] = None
         elif _YES.match(f):

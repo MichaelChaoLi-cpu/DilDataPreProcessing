@@ -1,22 +1,23 @@
 """
-P42 — `CP_fed_fish_seafood_yesterday` (CH): child ate fresh or dried fish or shellfish
-yesterday, 1/0.
+P47 — `CP_fed_other_fruit_vegetables_yesterday` (CH): child ate other fruits or vegetables
+(not already counted in a specific group) yesterday, 1/0.
 
-Source: **BD8L** — "Child ate fresh or dried fish or shellfish yesterday" (the MICS5/6
-24-hour fish/seafood food group). Rebuilt FRESH from raw rather than harmonizing
-`dd_fish_seafood` (100 datasets), because BD8L is cheese (not fish) for the letter-shifted
-Pakistan-KP MICS5 (its fish is BD8J), and Guyana MICS6 is multi-source (BD7C broth + BD8L).
-BD8L is present in 115 raw SAVs.
+Source: **BD8H** — "Child ate other fruits or vegetables yesterday" (the MICS5/6 24-hour
+catch-all other-fruit/vegetable food group). Some MICS6-2023 surveys (Azerbaijan, Kyrgyzstan,
+Lao) add **BD8F1** "any other vegetables (tomatoes, cucumbers, eggplants)"/"other green leafy
+vegetables" — OR-combined here so a child who only ate those still counts. Rebuilt FRESH from
+raw. dd_other_fruit_veg covered 89 of 115 BD8H datasets. Letter-shift: the Pakistan-KP MICS5
+BD8H is "meat" (its other-fruit/veg is BD8G).
 
-Guard, per dataset: BD8L present AND its variable label is a fish/seafood item
-(fish/seafood/shellfish/poisson/pescado/mariscos…); SAV row count == parquet; household_number
-== SAV HH id >= 99.9%. Shifted-letter datasets read their real fish column (Pakistan-KP BD8J,
-Madagascar-South BF15KX). For single-BD8L-source datasets whose raw re-read fails only the
-household guard (id-recoded), the merged dd_fish_seafood value is kept. Value: 1->1,2->0,7/8/9->NULL.
+Guard, per dataset: BD8H present AND label is an other-fruit/veg item (rejects the shifted
+Pakistan-KP "meat"); SAV row count == parquet; household_number == SAV HH id >= 99.9%.
+Shifted-letter datasets read their real column (Pakistan-KP BD8G, Madagascar-South BF15GX).
+For single-BD8H-source datasets whose raw re-read fails only the household guard, the merged
+value is kept. Value: 1->1, 2->0, 7/8/9->NULL.
 
 Usage:
-    .venv/bin/python MICS-CH/src/patch_fed_fish.py            # apply
-    .venv/bin/python MICS-CH/src/patch_fed_fish.py --verify
+    .venv/bin/python MICS-CH/src/patch_fed_other_fruit_veg.py            # apply
+    .venv/bin/python MICS-CH/src/patch_fed_other_fruit_veg.py --verify
 """
 from __future__ import annotations
 
@@ -36,21 +37,35 @@ PARQUET = ROOT / "processed_data" / "ch_merged.parquet"
 RAW = Path("/Volumes/MikesDataBackup/MICS/raw")
 DB_PARAMS = dict(host="localhost", port=5432, dbname="mda", user="lichao")
 
-CP = "CP_fed_fish_seafood_yesterday"
-BASE = "dd_fish_seafood"
-WANT = "BD8L"
+CP = "CP_fed_other_fruit_vegetables_yesterday"
+BASE = "dd_other_fruit_veg"
+WANT = "BD8H"
 GUARD_KEYS = ["HH2", "hh2", "HI2", "hi2", "WIHHNO", "wihhno", "hh1", "HH1"]
 # datasets whose cheese/dairy item sits under a shifted letter (verified cheese label)
 SPECIAL = {
-    "Pakistan_(Khyber_Pakhtunkhwa)_MICS5_Datasets": "BD8J",
-    "Madagascar (South)_ MICS4_Datasets": "BF15KX",
+    "Pakistan_(Khyber_Pakhtunkhwa)_MICS5_Datasets": "BD8G",
+    "Madagascar (South)_ MICS4_Datasets": "BF15GX",
 }
 
-# fish/seafood — accept BD8L only if its label is a fish/seafood item
-_CHEESE = re.compile(r"(\bfish\b|seafood|shellfish|poisson|fruits de mer|crustace|crustaces|"
-                     r"pescado|marisco|mariscos|peixe|frutos do mar|crab|shrimp|prawn|"
-                     r"crevette|langoust|molusco|molluscs?)")
+# "other fruits or vegetables" — a catch-all slot. Accept BD8H if it names "other"
+# fruit/veg (multilingual, singular+plural) or lists common example produce; REJECT if
+# the label is really a different group (the shifted Pakistan-KP BD8H is "meat").
+_CHEESE = re.compile(r"(other fruit|other veg|others? fruit|otra fruta|otras frutas|otra verdura|"
+                     r"otras verduras|otro veget|otros veget|autre fruit|autres fruits|autre legume|"
+                     r"autres legumes|outra fruta|outras frutas|outro fruto|outros frutos|"
+                     r"outro legume|outros legumes|comeu|"
+                     r"other locally|any other|orange|naranja|banana|banane|platano|platanito|"
+                     r"plantain|apple|manzana|pomme|tomato|tomate|cucumber|pepino|concombre|"
+                     r"eggplant|aubergine|berenjena|avocado|avocat|aguacate|mandarin|pineapple|"
+                     r"pina|abacaxi|grape|\buva\b|watermelon|sandia|pear|poire|\bpera\b|"
+                     r"cauliflower|beetroot)")
+_NOTOTHER = re.compile(r"(\bmeat\b|beef|chicken|goat|viande|\bpork\b|\bfish\b|poisson|"
+                       r"\begg\b|oeuf|cheese|liver|\bmilk\b|yogurt)")
 _COUNT = re.compile(r"(times|nombre|fois|number|veces|vezes|cuantas|quantas|numero)")
+# BD8F1 in some MICS6-2023 surveys = "any other vegetables (tomatoes, cucumbers, eggplants)";
+# OR-combine it into the other-fruit/veg indicator when present.
+_OTHERVEG = re.compile(r"(other vegetable|other veg|otra verdura|otras verduras|autre legume|"
+                       r"autres legumes|outro legume|green leafy|leafy veg|tomato|cucumber|eggplant)")
 
 
 def _fold(x):
@@ -58,8 +73,8 @@ def _fold(x):
 
 
 def _fold_ascii(x):
-    """Fold AND drop non-letter chars so mojibake labels still match (e.g. Portuguese
-    'Não' stored as 'NÃ£o' -> 'nao')."""
+    """Fold AND drop non-letter chars, so mojibake value labels still match — e.g.
+    Portuguese 'Não' stored as 'NÃ£o' folds to 'na£o' -> 'nao'."""
     return re.sub(r"[^a-z ]", "", _fold(x))
 
 
@@ -98,14 +113,14 @@ def _harmonize(base):
     return pd.Series(np.where(v == 1, 1.0, np.where(v == 2, 0.0, np.nan)), index=base.index)
 
 
-def _single_bd8l_datasets():
-    """Datasets whose dd_dairy was mapped ONLY from BD8N — the merged value is
-    trustworthy BD8L and can be kept when the raw re-read guard fails (id-recoded)."""
+def _single_bd8h_datasets():
+    """Datasets whose dd_other_fruit_veg was mapped ONLY from BD8H — the merged value is
+    trustworthy and can be kept when the raw re-read guard fails (id-recoded)."""
     conn = psycopg2.connect(**DB_PARAMS); cur = conn.cursor()
     cur.execute("""SELECT dataset_name FROM "ind_que_CH_MICS"
-                   WHERE canonical_varname='dd_dairy'
+                   WHERE canonical_varname='dd_other_fruit_veg'
                    GROUP BY dataset_name
-                   HAVING array_agg(DISTINCT column_in_raw_sav) = ARRAY['BD8L']""")
+                   HAVING array_agg(DISTINCT column_in_raw_sav) = ARRAY['BD8H']""")
     out = {r[0] for r in cur.fetchall()}
     conn.close()
     return out
@@ -142,13 +157,20 @@ def _from_raw(ds, parquet_ds):
         return None, f"{want} absent"
     lbl = meta.column_names_to_labels.get(col) or ""
     f = _fold(lbl)
-    if not _CHEESE.search(f) or _COUNT.search(f):
-        return None, f"{want} not fish: '{lbl[:40]}'"
+    if _NOTOTHER.search(f) or not _CHEESE.search(f) or _COUNT.search(f):
+        return None, f"{want} not other-fruit/veg: '{lbl[:40]}'"
+    # optional BD8F1 "any other vegetables" (MICS6-2023) -> OR-combined
+    f1 = _find(meta.column_names, "BD8F1")
+    if f1 and _OTHERVEG.search(_fold(meta.column_names_to_labels.get(f1) or "")) \
+            and not _COUNT.search(_fold(meta.column_names_to_labels.get(f1) or "")):
+        cols = [col, f1]
+    else:
+        cols = [col]
     key = next((_find(meta.column_names, k) for k in GUARD_KEYS if _find(meta.column_names, k)), None)
     if key is None:
         return None, "no guard key"
     try:
-        df, _ = pyreadstat.read_sav(str(sav), usecols=[col, key], apply_value_formats=False)
+        df, _ = pyreadstat.read_sav(str(sav), usecols=cols + [key], apply_value_formats=False)
     except Exception as e:
         return None, f"read err {e!s:.30}"
     if len(df) != len(parquet_ds):
@@ -158,10 +180,16 @@ def _from_raw(ds, parquet_ds):
     g = (a == b).mean()
     if g < 0.999:
         return None, f"guard {g:.3%} ({key})"
-    cmap = _classify(meta.variable_value_labels.get(col, {}))
-    v = pd.to_numeric(df[col].reset_index(drop=True), errors="coerce")
-    out = v.map(lambda x: cmap.get(x) if pd.notna(x) else None).astype("float64")
-    return out, f"{col} n={int(out.notna().sum())} g={g:.1%}"
+    df = df.reset_index(drop=True)
+    anyyes = pd.Series(False, index=df.index)
+    anyno = pd.Series(False, index=df.index)
+    for cc in cols:
+        cmap = _classify(meta.variable_value_labels.get(cc, {}))
+        v = pd.to_numeric(df[cc], errors="coerce").map(lambda x: cmap.get(x) if pd.notna(x) else None)
+        anyyes |= (v == 1).fillna(False)
+        anyno |= (v == 0).fillna(False)
+    out = pd.Series(np.where(anyyes, 1.0, np.where(anyno, 0.0, np.nan)), index=df.index)
+    return out, f"[{'+'.join(cols)}] n={int(out.notna().sum())} g={g:.1%}"
 
 
 def apply(verify):
@@ -172,9 +200,9 @@ def apply(verify):
         bad = int(df.loc[df[CP].notna() & ~df[CP].isin([0, 1])].shape[0]) if CP in df.columns else -1
         print(f"  parquet {CP}: valid={n} / {nds} ds; out-of-range={bad}")
         return
-    if not PARQUET.with_suffix(".parquet.bak_p42").exists():
-        shutil.copy2(PARQUET, PARQUET.with_suffix(".parquet.bak_p42"))
-    single = _single_bd8l_datasets()
+    if not PARQUET.with_suffix(".parquet.bak_p47").exists():
+        shutil.copy2(PARQUET, PARQUET.with_suffix(".parquet.bak_p47"))
+    single = _single_bd8h_datasets()
     cp = np.full(len(df), np.nan)
     ok, kept, skip = [], [], []
     for ds in df.dataset_name.unique():
@@ -185,7 +213,7 @@ def apply(verify):
                 base = _harmonize(df.loc[m, BASE])
                 if base.notna().any():
                     cp[m] = base.values
-                    kept.append((ds, f"kept dd (single-BD8L) n={int(base.notna().sum())}; raw:{note}"))
+                    kept.append((ds, f"kept dd (single-BD8H) n={int(base.notna().sum())}; raw:{note}"))
                     continue
             skip.append((ds, note)); continue
         cp[m] = ser.values
@@ -238,9 +266,9 @@ def sync_db(verify):
     cur.execute(f"DELETE FROM {I} WHERE canonical_varname=%s", (CP,))
     cur.execute(f'''INSERT INTO {I} (canonical_varname,dataset_name,column_in_raw_sav,
         column_label_in_english,source_kind,measure_type,canonical_text)
-        SELECT %s, dataset_name, 'BD8L',
-               'Child ate fresh or dried fish or shellfish yesterday',
-               'derived', measure_type, 'Child ate fish or seafood yesterday'
+        SELECT %s, dataset_name, 'BD8H',
+               'Child ate other fruits or vegetables yesterday',
+               'derived', measure_type, 'Child ate other fruits or vegetables yesterday'
         FROM {I} WHERE canonical_varname=%s''', (CP, BASE))
     print(f"  db: rebuilt CH ({pdf['dataset_name'].nunique()} datasets); ind_que mirrored")
     conn.commit(); conn.close()
@@ -248,7 +276,7 @@ def sync_db(verify):
 
 def main():
     verify = "--verify" in sys.argv
-    print(f"P42 CP_fed_fish_seafood_yesterday — {'VERIFY' if verify else 'APPLY'}")
+    print(f"P47 CP_fed_other_fruit_vegetables_yesterday — {'VERIFY' if verify else 'APPLY'}")
     print("== parquet =="); apply(verify)
     print("== database =="); sync_db(verify)
     print("Done.")
