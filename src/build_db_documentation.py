@@ -271,6 +271,39 @@ CATALOG = [
 # ---------------------------------------------------------------------------
 
 HISTORY = [
+    ("P49", "final_WM_MICS", "CP_education_years",
+     "The P09 years-of-schooling derivation mis-handled the 'cumulative' grade branch: for HIGHER "
+     "education it ignored the real grade and flat-set base+2 (~15, flagged estimated), and for "
+     "hybrid systems where UPPER SECONDARY restarts its grade at 1 (e.g. Tunisia: basic education "
+     "numbered 1-9 continuously, then upper-secondary and higher restart) it added no base, so "
+     "upper-secondary years were ~9 too low. Affected ~22 WM datasets (also HL/CH).",
+     "Reworked the cumulative branch to decide PER RECORD: grade<=level_dur+1 -> base+grade "
+     "(restarted within-level), else grade (cumulative); higher: grade<=9 -> base+grade, grade>=base "
+     "-> grade, in-between -> base+2 estimate. Re-ran P09 for WM/HL/CH; e.g. Tunisia MICS6 upper-sec "
+     "now 9-13 and higher 13-22 (was 0-4 and flat-15). DB rebuilt from parquet (TRUNCATE+COPY, "
+     "ind_que untouched); CP_ duplicates resynced."),
+    ("P48", "final_CH_MICS", "CP_fed_sweets_yesterday",
+     "The sugary/sweet-FOODS item (chocolate/candy/pastry/cake) is an unhealthy-foods add-on "
+     "asked in only ~11 MICS surveys; its raw letter varies (BD8O/BD8P/BD8Q; MICS4 BF16M/BF19N; "
+     "Ghana DD1S) and those letters mean other things elsewhere (BD8O is insects/nuts in some).",
+     "Added CP_fed_sweets_yesterday (1=Yes/0=No/NULL), rebuilt fresh from raw by LABEL (sugary/"
+     "sweet food; excludes sugary drinks, diarrhoea sugar-salt solutions, sweet potato). 11 datasets; "
+     "global rate 0.39. Low coverage is inherent to the question."),
+    ("P47B", "final_CH_MICS", "CP_fed_grains_yesterday",
+     "The dietary-item value classifier dropped Portuguese 'No' answers stored as mojibake "
+     "('Não' saved as 'NÃ£o'), leaving only 'Yes' — Sao Tome & Principe MICS5 showed rate=1.0 "
+     "for all 13 food groups (P34-P46).",
+     "Fixed _classify to strip non-letter chars before matching (so mojibake 'nao' matches) and "
+     "to treat 'sabe'/'ne sait' as DK. Re-derived all 13 food-group columns for Sao Tome MICS5 "
+     "(now 0/1); audit confirms no remaining rate=1.0 datasets. Propagated to all 13 patch scripts."),
+    ("P47", "final_CH_MICS", "CP_fed_other_fruit_vegetables_yesterday",
+     "dd_other_fruit_veg (catch-all other-fruit/veg group, raw BD8H) covered 89 of 115 BD8H "
+     "datasets and was multi-source for Fiji/Georgia MICS6; letter-shifted Pakistan-KP MICS5 BD8H "
+     "is 'meat' (its other-fruit/veg is BD8G).",
+     "Added CP_fed_other_fruit_vegetables_yesterday (1=Yes/0=No/NULL), rebuilt fresh from raw BD8H "
+     "(multilingual other-fruit/veg label; rejects Pakistan-KP meat) OR-combined with BD8F1 'any "
+     "other vegetables' where present (MICS6-2023 Azerbaijan/Kyrgyzstan/Lao). Shifted datasets read "
+     "Pakistan-KP BD8G, Madagascar BF15GX. 89 -> 116 datasets; global rate 0.27."),
     ("P46", "final_CH_MICS", "CP_fed_vitamin_a_fruits_yesterday",
      "dd_vitamin_a_fruit (vit-A fruit group, raw BD8G) covered only 65 of 115 BD8G datasets. "
      "Letter-shift: Pakistan-KP MICS5 BD8G is 'any other fruits or vegetables' (its vit-A fruit "
