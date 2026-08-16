@@ -43,6 +43,7 @@ Records post-hoc corrections to canonical variables. Each entry documents what c
 | P30 | 2026-08-05 | CH | `CP_still_breastfeeding` (1=Yes/0=No) — harmonized 240 + recovered 1 (DR Congo 2001); 240→241, near ceiling | ✅ | ✅ | `MICS-CH/src/patch_still_breastfeeding.py` |
 | P47 | 2026-08-15 | CH | `CP_fed_other_fruit_vegetables_yesterday` — other fruits/vegetables (1/0) from raw BD8H OR BD8F1; Pakistan-KP reads BD8G; 89 → 116 datasets | ✅ | ✅ | `MICS-CH/src/patch_fed_other_fruit_veg.py` |
 | P47B | 2026-08-15 | CH | mojibake fix: Portuguese 'Não' saved as 'NÃ£o' made `_classify` drop 'No' → Sao Tome MICS5 rate=1.0 across P34–P46; fixed classifier + re-derived all 13 food groups for that dataset | ✅ | ✅ | (all `patch_fed_*` scripts) |
+| P48 | 2026-08-16 | CH | `CP_fed_sweets_yesterday` — sugary/sweet foods (1/0) from raw by label (BD8O/BD8P/BD8Q/BF16M/BF19N/DD1S); add-on question, only 11 datasets | ✅ | ✅ | `MICS-CH/src/patch_fed_sweets.py` |
 | P46 | 2026-08-14 | CH | `CP_fed_vitamin_a_fruits_yesterday` — ripe mango/papaya/apricot/melon etc. (1/0) from raw BD8G; Pakistan-KP reads BD8F; 65 → 108 datasets | ✅ | ✅ | `MICS-CH/src/patch_fed_vitamin_a_fruit.py` |
 | P45 | 2026-08-14 | CH | `CP_fed_dark_green_leafy_vegetables_yesterday` — spinach/broccoli/kale etc. (1/0) from raw BD8F; multilingual green-leafy recovery; 92 → 107 datasets | ✅ | ✅ | `MICS-CH/src/patch_fed_green_leafy.py` |
 | P44 | 2026-08-14 | CH | `CP_fed_vitamin_a_vegetables_yesterday` — pumpkin/carrots/squash/orange sweet potato (1/0) from raw BD8D; fixes Fiji/Georgia multi-source; 100 → 107 datasets | ✅ | ✅ | `MICS-CH/src/patch_fed_vitamin_a_veg.py` |
@@ -2248,3 +2249,36 @@ and (b) treats "sabe"/"ne sait" as Don't-Know. Propagated to all 13 `patch_fed_*
 one affected dataset (Sao Tome MICS5) had all 13 food-group columns re-derived from raw with the
 corrected classifier (code 1→1/2→0); an audit confirms **0 remaining rate=1.0 datasets** across
 the 14 food-group columns. parquet + DB updated for that dataset. Only Sao Tome MICS5 was affected.
+
+---
+
+## P48 — `CP_fed_sweets_yesterday` (CH), from raw by label
+
+**Date:** 2026-08-16 · **Module:** CH · **Column:** `CP_fed_sweets_yesterday`
+
+### Problem
+The sugary/sweet-FOODS item ("chocolate, sweets, candies, pastries, cakes") is an
+unhealthy-foods add-on asked in only ~11 MICS surveys. Its raw letter varies —
+**BD8O / BD8P / BD8Q**, MICS4 **BF16M / BF19N**, Ghana **DD1S** — and those letters mean
+other things in other datasets (BD8O is "insects" or "nuts" elsewhere). `dd_sweets`
+covered 12 datasets but its raw mapping was a grab-bag (sugary drinks, diarrhoea
+sugar-salt solutions, sweet potato all crept in).
+
+### Fix (rebuild fresh from raw, by LABEL)
+Per dataset, select the column whose label is a sugary/sweet-FOOD item (sugary food /
+sweet food / aliments sucrés / chocolate+candy/pastry/cake) and harmonize it. Excluded by
+label: sugary DRINKS (soda/juice/eau sucrée), diarrhoea sugar-salt solutions, sweet potato.
+SAV row count == parquet; `household_number` == SAV HH id ≥ 99.9%. Value 1→1, 2→0, 7/8/9→NULL.
+
+### Result
+**11 datasets**, **60,091 rows**, values {0,1}, global rate 0.39 (Mexico 0.55, Mali 0.48,
+Ghana 0.20, CAR 0.19). Low coverage is inherent — most MICS surveys did not ask a sweet-foods
+question.
+
+### DB / Parquet: ✅ Done (2026-08-16)
+Parquet snapshot `ch_merged.parquet.bak_p48`. DB rebuilt via `TRUNCATE` + grouped `COPY`.
+`ind_que` mirrored (source_kind `derived`).
+
+### Code
+`MICS-CH/src/patch_fed_sweets.py` — `_select_cols()` (sugary-food label, excl drinks/solutions),
+`_from_raw()`, `_classify()` (mojibake-safe), `--verify`.
