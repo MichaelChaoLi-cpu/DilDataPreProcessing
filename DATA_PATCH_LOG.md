@@ -46,6 +46,8 @@ Records post-hoc corrections to canonical variables. Each entry documents what c
 | P48 | 2026-08-16 | CH | `CP_fed_sweets_yesterday` — sugary/sweet foods (1/0) from raw by label (BD8O/BD8P/BD8Q/BF16M/BF19N/DD1S); add-on question, only 11 datasets | ✅ | ✅ | `MICS-CH/src/patch_fed_sweets.py` |
 | P49 | 2026-08-16 | WM/HL/CH | `CP_education_years` fix — cumulative-branch reworked per-record (base+grade vs grade); fixes higher-ed flat-15 (~22 datasets) + hybrid upper-secondary undercount (Tunisia); re-ran P09 | ✅ | ✅ | `MICS-WM/src/patch_education_years.py` |
 | P50 | 2026-08-17 | CH | `CP_mother_birth_year`(+`_estimated`) + `CP_mother_birth_month` — mother's birth date on each child, from her WM record + HL household-listing fallback; 1.45M children / 214 datasets | ✅ | ✅ | `MICS-CH/src/patch_mother_birth_date.py` |
+| P51 | 2026-08-17 | WM/HH/CH | `CP_respondent_native_language` — respondent's native language DECODED to language name (text), by label; WM 55 / HH 65 / CH 53 datasets | ✅ | ✅ | `MICS-WM/src/patch_respondent_native_language.py` |
+| P52 | 2026-08-17 | CH | `CP_mother_native_language`(+`_source`) — child's mother's native language, priority WM→CH→HH; 477,440 children / 67 datasets | ✅ | ✅ | `MICS-CH/src/patch_child_mother_native_language.py` |
 | P46 | 2026-08-14 | CH | `CP_fed_vitamin_a_fruits_yesterday` — ripe mango/papaya/apricot/melon etc. (1/0) from raw BD8G; Pakistan-KP reads BD8F; 65 → 108 datasets | ✅ | ✅ | `MICS-CH/src/patch_fed_vitamin_a_fruit.py` |
 | P45 | 2026-08-14 | CH | `CP_fed_dark_green_leafy_vegetables_yesterday` — spinach/broccoli/kale etc. (1/0) from raw BD8F; multilingual green-leafy recovery; 92 → 107 datasets | ✅ | ✅ | `MICS-CH/src/patch_fed_green_leafy.py` |
 | P44 | 2026-08-14 | CH | `CP_fed_vitamin_a_vegetables_yesterday` — pumpkin/carrots/squash/orange sweet potato (1/0) from raw BD8D; fixes Fiji/Georgia multi-source; 100 → 107 datasets | ✅ | ✅ | `MICS-CH/src/patch_fed_vitamin_a_veg.py` |
@@ -2370,3 +2372,72 @@ added (source_kind `derived`, WM:CP_woman_birth_year).
 ### Code
 `MICS-CH/src/patch_mother_birth_date.py` — `_mother_lookup()` (WM link + month clean/CMC),
 `apply()`, `sync_db()`, `--verify`.
+
+---
+
+## P51 — `CP_respondent_native_language` (WM / HH / CH)
+
+**Date:** 2026-08-17 · **Modules:** WM, HH, CH · **Column:** `CP_respondent_native_language`
+
+### Problem
+`respondent_native_language` is a country-specific numeric code (raw WM14 / HH16 / UF14; the
+codes renumber every dataset) mapped for few datasets — not comparable or human-readable.
+
+### Fix (decode to language name, label-driven recovery)
+Per dataset, find the respondent's native-language column BY LABEL (mother tongue / native
+language / langue maternelle / lengua materna …) and DECODE each code to its value-label text
+(the language name). Excluded by label: the household HEAD's language (`HC1B`
+"mother tongue of head" — a separate canonical), the language OF INTERVIEW / QUESTIONNAIRE,
+and the French "école maternelle" (nursery school) false friend of "langue maternelle".
+Sentinels (DK / missing / no response / inconsistent) → NULL. Guarded positional backfill
+(row-count + household id ≥ 99.9%). Applied to mapped and unmapped datasets alike so the whole
+column is uniform decoded text.
+
+### Result
+Decoded language-name coverage: **WM 654,410 rows / 55 datasets · HH 703,751 / 65 · CH
+374,843 / 53**. Values are language names (e.g. Azerbaijani, Bangla, Garifuna, Kirundi,
+Dioula/Bambara). Datasets whose native-language column has no value labels (codes only) are
+left NULL (nothing to decode). Full cross-country ISO-639 harmonisation was NOT attempted —
+the decoded name is kept as recorded.
+
+### DB / Parquet: ✅ Done (2026-08-17)
+Parquet snapshots `*_merged.parquet.bak_p51`. `final_WM/HH/CH` rebuilt via `TRUNCATE` +
+grouped `COPY` (row counts preserved 2,960,835 / 2,774,775 / 1,684,203); `ind_que` mirrored
+(source_kind `derived`).
+
+### Code
+`MICS-WM/src/patch_respondent_native_language.py` — module arg wm|hh|ch; `_from_raw()`
+(label finder + value-label decode + household guard), `--verify`.
+
+---
+
+## P52 — `CP_mother_native_language` on each child (CH)
+
+**Date:** 2026-08-17 · **Module:** CH · **Columns:** `CP_mother_native_language`,
+`CP_mother_native_language_source`
+
+### Goal
+Put the child's mother's native language (decoded name) on each child, filled as widely as
+possible from the three P51 sources.
+
+### Method (priority fallback, all from P51 CP_respondent_native_language)
+1. **WM** — the mother's own WM (woman 15-49) record, linked via
+   (dataset, cluster, household, mother_caretaker_line_number) == WM
+   (dataset, cluster, hh_number, woman_line_number | line_number).
+2. **CH** — this child's own questionnaire respondent (UF14, usually the mother/caretaker).
+3. **HH** — the household respondent, linked via (dataset, cluster, household).
+HL carries no language variable, so it contributes nothing. `_source` records which won.
+
+### Result
+**477,440 children / 67 datasets** (WM 336,543 + CH 49,986 + HH 90,911), up from the CH-own
+UF14 alone (374,843 / 53). 328 distinct language names. Coverage is bounded by whether any of
+WM/CH/HH asked a native-language question in that survey. Names are not harmonised across
+countries (e.g. French "Arabe" vs English "Arabic").
+
+### DB / Parquet: ✅ Done (2026-08-17)
+Parquet snapshot `ch_merged.parquet.bak_p52`. Two columns added; `final_CH_MICS` rebuilt via
+`TRUNCATE` + grouped `COPY` (1,684,203 rows / 251 datasets preserved); `ind_que` rows added.
+
+### Code
+`MICS-CH/src/patch_child_mother_native_language.py` — pandas joins over the WM/CH/HH parquet
+CP columns (no SAV reads), `--verify`.

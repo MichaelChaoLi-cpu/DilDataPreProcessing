@@ -273,6 +273,23 @@ CATALOG = [
 # ---------------------------------------------------------------------------
 
 HISTORY = [
+    ("P52", "final_CH_MICS", "CP_mother_native_language",
+     "The child questionnaire's own respondent-language (UF14) covered only 53 datasets; the "
+     "child's mother's language could be filled more widely from the mother's WM record or the "
+     "household respondent.",
+     "Added CP_mother_native_language (+_source) on each child: the mother's native language "
+     "(decoded name) with fallback WM (mother's own woman record) -> CH (own UF14 respondent) -> "
+     "HH (household respondent), all from the P51 CP_respondent_native_language. HL carries no "
+     "language variable. 477,440 children / 67 datasets (WM 336,543 + CH 49,986 + HH 90,911)."),
+    ("P51", "final_WM_MICS", "CP_respondent_native_language",
+     "respondent_native_language was a country-specific numeric code (WM14/HH16/UF14, codes "
+     "renumber per dataset) mapped for few datasets, so it was not comparable or readable.",
+     "Added CP_respondent_native_language (WM/HH/CH) — the respondent's native language DECODED "
+     "to the language NAME (text) from the SAV value labels. Per dataset the column is found by "
+     "label (mother tongue / native language / langue maternelle …), excluding the household "
+     "head's language (HC1B), interview/questionnaire language, and 'école maternelle'. Sentinels "
+     "(DK/missing/inconsistent) -> NULL. WM 55 / HH 65 / CH 53 datasets. Full cross-country language "
+     "harmonisation (ISO 639) not attempted — the decoded name is kept as-is."),
     ("P50", "final_CH_MICS", "CP_mother_birth_year",
      "Children had no direct mother-birth-date field; the mother's birth year/month lived only "
      "on her WM (woman 15-49) record.",
@@ -778,6 +795,11 @@ CURATED: dict[tuple[str, str], str] = {
     ("final_CH_MICS", "infant_fed_milk_yesterday"): "RAW and INCONSISTENT: for ~52 MICS6 datasets this is BD8N='ate cheese/food made from milk' (NOT milk drinking), plus juice/fish in a couple; elsewhere it mixes formula/animal/combined milk. Do NOT use directly — use CP_fed_milk_yesterday. (P31)",
     ("final_CH_MICS", "CP_fed_milk_yesterday"): "Child drank milk yesterday: 1 = drank infant formula OR animal/other milk, 0 = neither, NULL = missing. Re-derived to fix the mis-aligned raw variable (which conflated cheese/juice/fish); animal-milk BD7E recovered from the SAV for 50 MICS6 datasets. 227 datasets. (P31)",
     ("final_CH_MICS", "CP_still_breastfeeding"): "Is the child still being breastfed: 1=Yes, 0=No, NULL=DK/missing. 241 datasets (240 harmonized + 1 recovered). By definition applies to children ever breastfed. (P30)",
+    ("final_WM_MICS", "CP_respondent_native_language"): "Respondent's (woman's) native language / mother tongue, DECODED to the language name (text) from the SAV value labels; raw code renumbers per dataset. Excludes household-head language and interview/questionnaire language. Sentinels->NULL. 55 datasets. (P51)",
+    ("final_HH_MICS", "CP_respondent_native_language"): "Household respondent's native language / mother tongue, decoded to the language name (text). 65 datasets. Distinct from mother_tongue_of_household_head. (P51)",
+    ("final_CH_MICS", "CP_mother_native_language"): "Child's mother's native language (decoded language name), filled with priority WM (mother's own woman-record language) -> CH (this child's UF14 respondent) -> HH (household respondent). 477,440 children / 67 datasets. Note: names are not harmonised across countries (e.g. 'Arabe' vs 'Arabic'). (P52)",
+    ("final_CH_MICS", "CP_mother_native_language_source"): "Which source filled CP_mother_native_language: 'WM' (mother's woman record), 'CH' (child questionnaire respondent), or 'HH' (household respondent). (P52)",
+    ("final_CH_MICS", "CP_respondent_native_language"): "Child questionnaire respondent's (mother/caretaker) native language / mother tongue, decoded to the language name (text). 53 datasets. (P51)",
     ("final_CH_MICS", "CP_mother_birth_year"): "Mother's birth year (Gregorian), linked from her WM record's CP_woman_birth_year (P26), with an HL household-listing fallback (year_of_birth, else survey_year-age) for mothers not in the WM 15-49 file. 214 datasets. (P50)",
     ("final_CH_MICS", "CP_mother_birth_year_estimated"): "1 = the mother's CP_mother_birth_year is an estimate (from her WM CP_woman_birth_year_estimated). (P50)",
     ("final_CH_MICS", "CP_mother_birth_month"): "Mother's birth month 1-12, linked from her WM record (woman_birth_month cleaned, else derived from woman_birth_date_cmc; HL month_of_birth fallback). 206 datasets. (P50)",
