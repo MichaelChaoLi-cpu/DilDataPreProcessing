@@ -179,7 +179,9 @@ CH: child_age_years (0-4), CP_child_age_months (0-59, 248 datasets — rebuilt f
     CP_fed_other_fruit_vegetables_yesterday (ate other fruits/vegetables yesterday
     1/0; 116 datasets; from raw BD8H + BD8F1),
     CP_fed_sweets_yesterday (ate sugary/sweet foods yesterday 1/0; only 11 datasets
-    - add-on question; from raw BD8O/BD8P/BD8Q by label)
+    - add-on question; from raw BD8O/BD8P/BD8Q by label),
+    CP_mother_birth_year (+_estimated) / CP_mother_birth_month (mother's birth
+    date, linked from her WM record; 201 datasets)
 HH: sex_of_household_head (1/2, cleaned)
 
 Full change history: _data_issues (status='fixed', patch_id P01-P10) and
@@ -271,6 +273,16 @@ CATALOG = [
 # ---------------------------------------------------------------------------
 
 HISTORY = [
+    ("P50", "final_CH_MICS", "CP_mother_birth_year",
+     "Children had no direct mother-birth-date field; the mother's birth year/month lived only "
+     "on her WM (woman 15-49) record.",
+     "Added CP_mother_birth_year (+_estimated) and CP_mother_birth_month on each child by linking "
+     "to the mother's WM record (dataset+cluster+household+mother_caretaker_line_number == WM "
+     "woman_line_number/line_number): year from CP_woman_birth_year (P26), month from "
+     "woman_birth_month cleaned to 1-12 (else derived from woman_birth_date_cmc). Falls back to "
+     "the mother's HL household-listing row (year_of_birth, else survey_year-age; month_of_birth) "
+     "when she is not in the WM 15-49 file. 1,453,480 children / 214 datasets (WM 1,283,814 + HL "
+     "fallback 169,666; implied mother age avg 30.5, 99.6% in 12-70)."),
     ("P49", "final_WM_MICS", "CP_education_years",
      "The P09 years-of-schooling derivation mis-handled the 'cumulative' grade branch: for HIGHER "
      "education it ignored the real grade and flat-set base+2 (~15, flagged estimated), and for "
@@ -766,6 +778,9 @@ CURATED: dict[tuple[str, str], str] = {
     ("final_CH_MICS", "infant_fed_milk_yesterday"): "RAW and INCONSISTENT: for ~52 MICS6 datasets this is BD8N='ate cheese/food made from milk' (NOT milk drinking), plus juice/fish in a couple; elsewhere it mixes formula/animal/combined milk. Do NOT use directly — use CP_fed_milk_yesterday. (P31)",
     ("final_CH_MICS", "CP_fed_milk_yesterday"): "Child drank milk yesterday: 1 = drank infant formula OR animal/other milk, 0 = neither, NULL = missing. Re-derived to fix the mis-aligned raw variable (which conflated cheese/juice/fish); animal-milk BD7E recovered from the SAV for 50 MICS6 datasets. 227 datasets. (P31)",
     ("final_CH_MICS", "CP_still_breastfeeding"): "Is the child still being breastfed: 1=Yes, 0=No, NULL=DK/missing. 241 datasets (240 harmonized + 1 recovered). By definition applies to children ever breastfed. (P30)",
+    ("final_CH_MICS", "CP_mother_birth_year"): "Mother's birth year (Gregorian), linked from her WM record's CP_woman_birth_year (P26), with an HL household-listing fallback (year_of_birth, else survey_year-age) for mothers not in the WM 15-49 file. 214 datasets. (P50)",
+    ("final_CH_MICS", "CP_mother_birth_year_estimated"): "1 = the mother's CP_mother_birth_year is an estimate (from her WM CP_woman_birth_year_estimated). (P50)",
+    ("final_CH_MICS", "CP_mother_birth_month"): "Mother's birth month 1-12, linked from her WM record (woman_birth_month cleaned, else derived from woman_birth_date_cmc; HL month_of_birth fallback). 206 datasets. (P50)",
     ("final_CH_MICS", "CP_fed_sweets_yesterday"): "Child ate sugary/sweet FOODS yesterday (chocolate, sweets, candies, pastries, cakes): 1=Yes, 0=No, NULL=DK/missing. Rebuilt fresh from raw by label (letter varies BD8O/BD8P/BD8Q/BF16M/BF19N/DD1S); excludes sugary drinks and sugar-salt solutions. Only 11 datasets asked this unhealthy-foods add-on. (P48)",
     ("final_CH_MICS", "dd_sweets"): "Dietary sugary-foods flag, RAW; only 12 datasets. Use CP_fed_sweets_yesterday (11, label-driven). (P48)",
     ("final_CH_MICS", "CP_fed_other_fruit_vegetables_yesterday"): "Child ate other fruits or vegetables yesterday (catch-all not in a specific group): 1=Yes, 0=No, NULL=DK/missing. Rebuilt fresh from raw BD8H, OR-combined with BD8F1 'other vegetables' in MICS6-2023 surveys. Pakistan-KP reads BD8G (its BD8H is meat). 116 datasets. (P47)",

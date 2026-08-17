@@ -45,6 +45,7 @@ Records post-hoc corrections to canonical variables. Each entry documents what c
 | P47B | 2026-08-15 | CH | mojibake fix: Portuguese 'Não' saved as 'NÃ£o' made `_classify` drop 'No' → Sao Tome MICS5 rate=1.0 across P34–P46; fixed classifier + re-derived all 13 food groups for that dataset | ✅ | ✅ | (all `patch_fed_*` scripts) |
 | P48 | 2026-08-16 | CH | `CP_fed_sweets_yesterday` — sugary/sweet foods (1/0) from raw by label (BD8O/BD8P/BD8Q/BF16M/BF19N/DD1S); add-on question, only 11 datasets | ✅ | ✅ | `MICS-CH/src/patch_fed_sweets.py` |
 | P49 | 2026-08-16 | WM/HL/CH | `CP_education_years` fix — cumulative-branch reworked per-record (base+grade vs grade); fixes higher-ed flat-15 (~22 datasets) + hybrid upper-secondary undercount (Tunisia); re-ran P09 | ✅ | ✅ | `MICS-WM/src/patch_education_years.py` |
+| P50 | 2026-08-17 | CH | `CP_mother_birth_year`(+`_estimated`) + `CP_mother_birth_month` — mother's birth date on each child, from her WM record + HL household-listing fallback; 1.45M children / 214 datasets | ✅ | ✅ | `MICS-CH/src/patch_mother_birth_date.py` |
 | P46 | 2026-08-14 | CH | `CP_fed_vitamin_a_fruits_yesterday` — ripe mango/papaya/apricot/melon etc. (1/0) from raw BD8G; Pakistan-KP reads BD8F; 65 → 108 datasets | ✅ | ✅ | `MICS-CH/src/patch_fed_vitamin_a_fruit.py` |
 | P45 | 2026-08-14 | CH | `CP_fed_dark_green_leafy_vegetables_yesterday` — spinach/broccoli/kale etc. (1/0) from raw BD8F; multilingual green-leafy recovery; 92 → 107 datasets | ✅ | ✅ | `MICS-CH/src/patch_fed_green_leafy.py` |
 | P44 | 2026-08-14 | CH | `CP_fed_vitamin_a_vegetables_yesterday` — pumpkin/carrots/squash/orange sweet potato (1/0) from raw BD8D; fixes Fiji/Georgia multi-source; 100 → 107 datasets | ✅ | ✅ | `MICS-CH/src/patch_fed_vitamin_a_veg.py` |
@@ -2325,3 +2326,47 @@ Parquet re-derived (base + `CP_` duplicates resynced); `final_WM/HL/CH` rebuilt 
 
 ### Code
 `MICS-WM/src/patch_education_years.py` — `build_years()` cumulative branch.
+
+---
+
+## P50 — mother's birth date on each child (CH)
+
+**Date:** 2026-08-17 · **Module:** CH · **Columns:** `CP_mother_birth_year`,
+`CP_mother_birth_year_estimated`, `CP_mother_birth_month`
+
+### Goal
+Put the mother's birth year/month on each child so age-at-birth / cohort analyses can
+run directly on the CH table.
+
+### Method
+Link each child to its mother's WM (woman 15-49) record — the same link P09 used for
+mother_education — on `(dataset_name, cluster_number, household_number,
+mother_caretaker_line_number)` == WM `(dataset_name, cluster_number, hh_number,
+woman_line_number | line_number)`. From the mother's WM row:
+- **year**: `CP_woman_birth_year` (P26 — real age via HL listing, Gregorian) and its
+  `_estimated` flag → `CP_mother_birth_year` (+`_estimated`).
+- **month**: `woman_birth_month` cleaned to 1-12 (sentinels 0/97/98/99 → NULL); where
+  absent, derived from `woman_birth_date_cmc` as ((cmc-1) % 12)+1 → `CP_mother_birth_month`.
+
+### Method (updated with HL fallback)
+Primary: mother's WM (15-49) record. **Fallback**: when the mother is not in the WM 15-49
+file (e.g. older than 49, or a non-WM caretaker), link her HL household-listing member row
+(same line number) — birth year from HL `year_of_birth`, else `survey_year − HL age` (flagged
+estimated); month from HL `month_of_birth`.
+
+### Result
+**1,453,480 children / 214 datasets** with a mother birth year (WM link 1,283,814 + HL
+fallback 169,666; month 1,361,190 / 206). Remaining unlinked children have no resolvable
+mother line in either WM or HL. Validation: implied mother age at survey averages 30.5 with
+99.6% in 12-70; estimated share 11% (the HL age-derived years); birth years 1900-2015, months 1-12.
+Note: `mother_caretaker_line_number` can point to a non-biological caretaker, so a few links
+reflect the caretaker's birth date.
+
+### DB / Parquet: ✅ Done (2026-08-17)
+Parquet snapshot `ch_merged.parquet.bak_p50`. Three columns added; `final_CH_MICS` rebuilt
+via `TRUNCATE` + grouped `COPY` (1,684,203 rows / 251 datasets preserved); `ind_que` rows
+added (source_kind `derived`, WM:CP_woman_birth_year).
+
+### Code
+`MICS-CH/src/patch_mother_birth_date.py` — `_mother_lookup()` (WM link + month clean/CMC),
+`apply()`, `sync_db()`, `--verify`.
