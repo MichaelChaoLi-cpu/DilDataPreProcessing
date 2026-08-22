@@ -48,6 +48,7 @@ Records post-hoc corrections to canonical variables. Each entry documents what c
 | P50 | 2026-08-17 | CH | `CP_mother_birth_year`(+`_estimated`) + `CP_mother_birth_month` — mother's birth date on each child, from her WM record + HL household-listing fallback; 1.45M children / 214 datasets | ✅ | ✅ | `MICS-CH/src/patch_mother_birth_date.py` |
 | P51 | 2026-08-17 | WM/HH/CH | `CP_respondent_native_language` — respondent's native language DECODED to language name (text), by label; WM 55 / HH 65 / CH 53 datasets | ✅ | ✅ | `MICS-WM/src/patch_respondent_native_language.py` |
 | P52 | 2026-08-17 | CH | `CP_mother_native_language`(+`_source`) — child's mother's native language, priority WM→CH→HH; 477,440 children / 67 datasets | ✅ | ✅ | `MICS-CH/src/patch_child_mother_native_language.py` |
+| P53 | 2026-08-17 | CH | `CP_fed_animal_milk_yesterday` — drank animal/tinned/powdered/fresh milk (1/0) from raw by label (BD7E/BD7D/BF6…); 84 datasets | ✅ | ✅ | `MICS-CH/src/patch_fed_animal_milk.py` |
 | P46 | 2026-08-14 | CH | `CP_fed_vitamin_a_fruits_yesterday` — ripe mango/papaya/apricot/melon etc. (1/0) from raw BD8G; Pakistan-KP reads BD8F; 65 → 108 datasets | ✅ | ✅ | `MICS-CH/src/patch_fed_vitamin_a_fruit.py` |
 | P45 | 2026-08-14 | CH | `CP_fed_dark_green_leafy_vegetables_yesterday` — spinach/broccoli/kale etc. (1/0) from raw BD8F; multilingual green-leafy recovery; 92 → 107 datasets | ✅ | ✅ | `MICS-CH/src/patch_fed_green_leafy.py` |
 | P44 | 2026-08-14 | CH | `CP_fed_vitamin_a_vegetables_yesterday` — pumpkin/carrots/squash/orange sweet potato (1/0) from raw BD8D; fixes Fiji/Georgia multi-source; 100 → 107 datasets | ✅ | ✅ | `MICS-CH/src/patch_fed_vitamin_a_veg.py` |
@@ -2441,3 +2442,36 @@ Parquet snapshot `ch_merged.parquet.bak_p52`. Two columns added; `final_CH_MICS`
 ### Code
 `MICS-CH/src/patch_child_mother_native_language.py` — pandas joins over the WM/CH/HH parquet
 CP columns (no SAV reads), `--verify`.
+
+---
+
+## P53 — `CP_fed_animal_milk_yesterday` (CH)
+
+**Date:** 2026-08-17 · **Module:** CH · **Column:** `CP_fed_animal_milk_yesterday`
+
+### Problem
+The 24-hour animal-milk item ("drank tinned, powdered or fresh animal milk") had no clean
+CP. Raw `infant_fed_milk_yesterday` is contaminated (mis-mapped to BD8N cheese / BD8A yogurt /
+BF8 juice / BD8L fish for many datasets — see P31), and the animal-milk column letter varies by
+round.
+
+### Fix (rebuild fresh from raw, by LABEL)
+Per dataset select the column whose label is animal / tinned / powdered / fresh MILK and is a
+yes/no item — `BD7E` (MICS6 "drank milk from animals"), `BD7D` / `BF6` / `BF3F` / `BF3E`
+(MICS4/5 "lait en boîte, en poudre ou lait frais animal"). Excluded: infant formula, breast
+milk, yogurt/cheese/fortified baby food, and diarrhoea-care fluids (CA-series "homemade /
+recommended / fermented fluid during diarrhoea"). Value 1→1, 2→0, 7/8/9→NULL; guarded
+positional backfill (row-count + household id ≥ 99.9%).
+
+### Result
+**84 datasets**, **327,520 rows**, values {0,1}, global rate 0.32 (Algeria 0.79, Nepal 0.39,
+Bangladesh 0.17). This is the **animal-milk component alone**; P31 `CP_fed_milk_yesterday` is
+the combined "formula OR animal milk".
+
+### DB / Parquet: ✅ Done (2026-08-17)
+Parquet snapshot `ch_merged.parquet.bak_p53`. `final_CH_MICS` rebuilt via `TRUNCATE` + grouped
+`COPY` (1,684,203 rows / 251 datasets preserved); `ind_que` mirrored.
+
+### Code
+`MICS-CH/src/patch_fed_animal_milk.py` — `_select_cols()` (animal-milk label, excl formula/
+breast/yogurt/diarrhoea), `_from_raw()`, mojibake-safe `_classify()`, `--verify`.
