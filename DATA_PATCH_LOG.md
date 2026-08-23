@@ -53,6 +53,7 @@ Records post-hoc corrections to canonical variables. Each entry documents what c
 | P55 | 2026-08-23 | CH | `CP_times_animal_milk_yesterday` — times drank animal milk (count) from raw by label (BD7E1/BF7); new variable, 44 datasets | ✅ | ✅ | `MICS-CH/src/patch_times_animal_milk.py` |
 | P56 | 2026-08-23 | CH | `CP_times_yogurt_yesterday` — times drank/ate yogurt (count) from raw by label (BD8A1/BD8AN/BF14/BD7F1), eaten+drunk summed; 67 → 156 datasets | ✅ | ✅ | `MICS-CH/src/patch_times_yogurt.py` |
 | P57 | 2026-08-23 | CH | `CP_times_solid_semisolid_soft_food_yesterday` — times ate solid/semi-solid/soft food (IYCF meal frequency, count) from raw by label (BD9/BF17/BD11/BF5); 40 → 163 datasets | ✅ | ✅ | `MICS-CH/src/patch_times_solid_food.py` |
+| P58 | 2026-08-23 | CH | `CP_fed_plain_water_yesterday` — child drank plain water (1/0) from raw by name-anchored label (BD7A/BF3/BF3B); 194 → 207 datasets | ✅ | ✅ | `MICS-CH/src/patch_fed_plain_water.py` |
 | P46 | 2026-08-14 | CH | `CP_fed_vitamin_a_fruits_yesterday` — ripe mango/papaya/apricot/melon etc. (1/0) from raw BD8G; Pakistan-KP reads BD8F; 65 → 108 datasets | ✅ | ✅ | `MICS-CH/src/patch_fed_vitamin_a_fruit.py` |
 | P45 | 2026-08-14 | CH | `CP_fed_dark_green_leafy_vegetables_yesterday` — spinach/broccoli/kale etc. (1/0) from raw BD8F; multilingual green-leafy recovery; 92 → 107 datasets | ✅ | ✅ | `MICS-CH/src/patch_fed_green_leafy.py` |
 | P44 | 2026-08-14 | CH | `CP_fed_vitamin_a_vegetables_yesterday` — pumpkin/carrots/squash/orange sweet potato (1/0) from raw BD8D; fixes Fiji/Georgia multi-source; 100 → 107 datasets | ✅ | ✅ | `MICS-CH/src/patch_fed_vitamin_a_veg.py` |
@@ -2600,3 +2601,37 @@ Parquet snapshot `ch_merged.parquet.bak_p57`. `final_CH_MICS` rebuilt via `TRUNC
 ### Code
 `MICS-CH/src/patch_times_solid_food.py` — `_select_col()` (times + solid, single), `_sentinel_codes()`,
 `_from_raw()`, `--verify`.
+
+---
+
+## P58 — `CP_fed_plain_water_yesterday` (CH)
+
+**Date:** 2026-08-23 · **Module:** CH · **Column:** `CP_fed_plain_water_yesterday`
+
+### Problem
+The "child drank plain water yesterday" yes/no feeding item was mapped for **194 datasets**
+though present in ~230 (raw `BD7A` MICS6, `BF3` MICS4, `BF3B` MICS5 "Received: plain water").
+"water" is a heavily polluted keyword: household water-supply (`WS4` "person fetching water",
+`WS5`), diarrhoea-care water (`CI3F`/`CI3G` "during diarrhoea: water with feeding / water alone",
+CA-series rice water), and sweet / tea / broth water (the C-suffix items `BF3C` "água doce/sugar
+water", `BD7C` "canja/aniseed tea, gripe water") all carry a "water" label.
+
+### Fix (rebuild fresh from raw; NAME-anchored + label-verified)
+Select a column whose NAME is in `{BD7A, BF3, BF3B}` (the stable plain-water feeding positions)
+AND whose label mentions water (mojibake-robust fold) AND is a yes/no item, EXCLUDING
+diarrhoea / water-source / fetching / treatment / sweet-water / tea-broth false friends. The
+C-suffix items are the *next* checklist liquid (sweetened water / juice / tea) and are dropped.
+1=Yes→1, 2=No→0; sentinels (7/8/9/DK/NR) → NULL. Guarded positional backfill.
+
+### Result
+**207 datasets**, **979,813 rows**, all 0/1, yes-rate 0.87; no dataset is all-yes or all-no
+(mojibake-bug check clean). The 23 label-matched datasets not sourced failed the row-count /
+household-id guard (their base column is retained unchanged).
+
+### DB / Parquet: ✅ Done (2026-08-23)
+Parquet snapshot `ch_merged.parquet.bak_p58`. `final_CH_MICS` rebuilt via `TRUNCATE` + grouped
+`COPY` (1,684,203 rows / 251 datasets preserved); `ind_que` mirrored. Column type SMALLINT.
+
+### Code
+`MICS-CH/src/patch_fed_plain_water.py` — `_select_cols()` (name-anchored `{BD7A,BF3,BF3B}` +
+label-verified), `_classify()`, `_from_raw()` (OR across selected cols), `--verify`.
