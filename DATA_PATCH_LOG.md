@@ -52,6 +52,7 @@ Records post-hoc corrections to canonical variables. Each entry documents what c
 | P54 | 2026-08-23 | CH | `CP_times_infant_formula_yesterday` — times fed infant formula (count) from raw by label (BD7D1/BF5/BD7EN); 7 → 132 datasets | ✅ | ✅ | `MICS-CH/src/patch_times_infant_formula.py` |
 | P55 | 2026-08-23 | CH | `CP_times_animal_milk_yesterday` — times drank animal milk (count) from raw by label (BD7E1/BF7); new variable, 44 datasets | ✅ | ✅ | `MICS-CH/src/patch_times_animal_milk.py` |
 | P56 | 2026-08-23 | CH | `CP_times_yogurt_yesterday` — times drank/ate yogurt (count) from raw by label (BD8A1/BD8AN/BF14/BD7F1), eaten+drunk summed; 67 → 156 datasets | ✅ | ✅ | `MICS-CH/src/patch_times_yogurt.py` |
+| P57 | 2026-08-23 | CH | `CP_times_solid_semisolid_soft_food_yesterday` — times ate solid/semi-solid/soft food (IYCF meal frequency, count) from raw by label (BD9/BF17/BD11/BF5); 40 → 163 datasets | ✅ | ✅ | `MICS-CH/src/patch_times_solid_food.py` |
 | P46 | 2026-08-14 | CH | `CP_fed_vitamin_a_fruits_yesterday` — ripe mango/papaya/apricot/melon etc. (1/0) from raw BD8G; Pakistan-KP reads BD8F; 65 → 108 datasets | ✅ | ✅ | `MICS-CH/src/patch_fed_vitamin_a_fruit.py` |
 | P45 | 2026-08-14 | CH | `CP_fed_dark_green_leafy_vegetables_yesterday` — spinach/broccoli/kale etc. (1/0) from raw BD8F; multilingual green-leafy recovery; 92 → 107 datasets | ✅ | ✅ | `MICS-CH/src/patch_fed_green_leafy.py` |
 | P44 | 2026-08-14 | CH | `CP_fed_vitamin_a_vegetables_yesterday` — pumpkin/carrots/squash/orange sweet potato (1/0) from raw BD8D; fixes Fiji/Georgia multi-source; 100 → 107 datasets | ✅ | ✅ | `MICS-CH/src/patch_fed_vitamin_a_veg.py` |
@@ -2568,3 +2569,34 @@ Parquet snapshot `ch_merged.parquet.bak_p56`. `final_CH_MICS` rebuilt via `TRUNC
 ### Code
 `MICS-CH/src/patch_times_yogurt.py` — `_select_cols()` (yogurt-times, excl dummy/flags),
 `_sentinel_codes()`, `_from_raw()` (sum eaten+drunk), `--verify`.
+
+---
+
+## P57 — `CP_times_solid_semisolid_soft_food_yesterday` (CH)
+
+**Date:** 2026-08-23 · **Module:** CH · **Column:** `CP_times_solid_semisolid_soft_food_yesterday`
+
+### Problem
+The IYCF "number of times ate solid, semi-solid or soft foods yesterday" COUNT (meal frequency)
+was mapped for only **40 datasets** though present in ~175 (raw `BD9` MICS6, `BF17` MICS4/5,
+`BD11`, and `BF5` in some MICS4/5). `BF5` doubles as infant-formula-times in other rounds, so the
+column cannot be picked by name — it must be identified by LABEL.
+
+### Fix (rebuild fresh from raw, by LABEL; one column per dataset; per-dataset sentinels)
+Select the single "times … solid/semi-solid/soft food" count column by label (TIMES word + SOLID
+word), excluding formula/milk/breast/yogurt/water/juice/liquid and dummy/instruction-flag columns.
+A code is NULLed if its value label says DK/missing/NR/NSP/inconsistent or if code ≥ 90; the numeric
+count (1..89) is kept (7 means "7 or more" where the survey caps there). Guarded positional backfill.
+
+### Result
+**163 datasets**, **555,894 rows**, range 1-22, mean 3.0 (modal 2-3 meals/day). The 12 label-matched
+datasets that were not sourced failed the row-count / household-id guard; older MICS2/MICS3 rounds
+did not ask this question.
+
+### DB / Parquet: ✅ Done (2026-08-23)
+Parquet snapshot `ch_merged.parquet.bak_p57`. `final_CH_MICS` rebuilt via `TRUNCATE` + grouped
+`COPY` (1,684,203 rows / 251 datasets preserved); `ind_que` mirrored. Column type SMALLINT.
+
+### Code
+`MICS-CH/src/patch_times_solid_food.py` — `_select_col()` (times + solid, single), `_sentinel_codes()`,
+`_from_raw()`, `--verify`.

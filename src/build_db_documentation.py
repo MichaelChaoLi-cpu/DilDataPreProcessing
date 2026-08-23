@@ -273,6 +273,9 @@ CATALOG = [
 # ---------------------------------------------------------------------------
 
 HISTORY = [
+    ("P57", "final_CH_MICS", "CP_times_solid_semisolid_soft_food_yesterday",
+     "The times-ate-solid/semi-solid/soft-food count (IYCF meal frequency; raw BD9 MICS6, BF17 MICS4/5, BD11, BF5 some MICS4/5) was mapped for only 40 datasets though present in ~175; BF5 also denotes formula-times in other rounds, so the column must be picked by label.",
+     "Added CP_times_solid_semisolid_soft_food_yesterday (count) rebuilt fresh from raw by LABEL (one column per dataset, strictly disambiguated from formula/milk/yogurt times), with per-dataset sentinel handling from value labels. 163 datasets, 555,894 rows, range 1-22 (mean 3.0)."),
     ("P56", "final_CH_MICS", "CP_times_yogurt_yesterday",
      "The times-drank/ate-yogurt count (raw BD8A1 MICS6, BD8AN MICS5, BF14 MICS4, BD7F1 "
      "MICS6-2023) was mapped for only 67 datasets though present in ~166; MICS6-2023 splits it "
@@ -825,6 +828,7 @@ CURATED: dict[tuple[str, str], str] = {
     ("final_CH_MICS", "CP_ever_breastfed"): "Was the child ever breastfed: 1=Yes, 0=No, NULL=DK/missing. 233 datasets — 205 harmonized + 28 recovered from raw SAV columns (BF1/BD2) the alignment had missed because of non-English labels (French/Spanish/Portuguese). (P29)",
     ("final_CH_MICS", "still_breastfeeding"): "Child still being breastfed, RAW (1=Yes/2=No + sentinels). Use CP_still_breastfeeding. (P30)",
     ("final_CH_MICS", "infant_fed_milk_yesterday"): "RAW and INCONSISTENT: for ~52 MICS6 datasets this is BD8N='ate cheese/food made from milk' (NOT milk drinking), plus juice/fish in a couple; elsewhere it mixes formula/animal/combined milk. Do NOT use directly — use CP_fed_milk_yesterday. (P31)",
+    ("final_CH_MICS", "CP_times_solid_semisolid_soft_food_yesterday"): "Number of times the child ate solid, semi-solid or soft foods yesterday (IYCF meal-frequency count; MICS6 caps at '7 or more'). Rebuilt fresh from raw by label (BD9 MICS6; BF17 MICS4/5; BD11; BF5 some MICS4/5 \u2014 picked strictly by label since BF5 also means formula-times elsewhere); per-dataset sentinels (DK/missing/NR, >=90) nulled, one count per dataset. 163 datasets. (P57)",
     ("final_CH_MICS", "CP_times_yogurt_yesterday"): "Number of times the child drank or ate yogurt yesterday (count; MICS6 caps at '7 or more'). Rebuilt fresh from raw by label (BD8A1 MICS6; BD8AN MICS5; BF14 MICS4; BD7F1 MICS6-2023 yogurt-drink), summing eaten+drunk where split; per-dataset sentinels (DK/missing/NR, >=90) nulled, dummy/flag columns skipped. Non-null only for children who had yogurt. Count companion of CP_fed_yogurt_yesterday. 156 datasets. (P56)",
     ("final_CH_MICS", "CP_times_animal_milk_yesterday"): "Number of times the child drank animal / tinned / powdered / fresh milk yesterday (count; MICS6 caps at '7 or more', MICS4 up to ~22). Rebuilt fresh from raw by label (BD7E1 MICS6; BF7 MICS4/5); per-dataset sentinels (DK/missing/NR, >=90) nulled. Non-null only for children who drank animal milk. Count companion of CP_fed_animal_milk_yesterday. 44 datasets. (P55)",
     ("final_CH_MICS", "CP_times_infant_formula_yesterday"): "Number of times the child was fed infant formula yesterday (count; 7 = '7 or more' in MICS6, actual counts up to ~22 in MICS4). Rebuilt fresh from raw by label (BD7D1 MICS6; BF5/BD7EN MICS4/5); per-dataset sentinels (DK/missing/NR, >=90) nulled. Non-null only for formula-fed children. 132 datasets. (P54)",
