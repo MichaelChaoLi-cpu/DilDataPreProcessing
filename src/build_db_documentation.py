@@ -273,6 +273,14 @@ CATALOG = [
 # ---------------------------------------------------------------------------
 
 HISTORY = [
+    ("P54", "final_CH_MICS", "CP_times_infant_formula_yesterday",
+     "The number-of-times-fed-infant-formula count (raw BD7D1/BF5/BD7EN) was mapped for only "
+     "7 datasets though present in ~142; sentinel coding differs by round (MICS6 8/9=DK/NR vs "
+     "MICS4 8-12 real counts).",
+     "Added CP_times_infant_formula_yesterday (count 1..n) rebuilt fresh from raw by LABEL "
+     "(times + infant-formula), with per-dataset sentinel handling from value labels (codes "
+     "labelled DK/missing/NR, or >=90, -> NULL; real counts kept incl MICS4 8-12). 132 datasets, "
+     "77,462 formula-fed children, range 1-22 (mean 3.5); 98.8% also flagged fed-formula."),
     ("P53", "final_CH_MICS", "CP_fed_animal_milk_yesterday",
      "The animal-milk 24h item (drank tinned/powdered/fresh animal milk) had no clean CP: raw "
      "infant_fed_milk_yesterday is contaminated (mis-mapped to BD8N cheese / BD8A yogurt / BF8 "
@@ -802,6 +810,7 @@ CURATED: dict[tuple[str, str], str] = {
     ("final_CH_MICS", "CP_ever_breastfed"): "Was the child ever breastfed: 1=Yes, 0=No, NULL=DK/missing. 233 datasets — 205 harmonized + 28 recovered from raw SAV columns (BF1/BD2) the alignment had missed because of non-English labels (French/Spanish/Portuguese). (P29)",
     ("final_CH_MICS", "still_breastfeeding"): "Child still being breastfed, RAW (1=Yes/2=No + sentinels). Use CP_still_breastfeeding. (P30)",
     ("final_CH_MICS", "infant_fed_milk_yesterday"): "RAW and INCONSISTENT: for ~52 MICS6 datasets this is BD8N='ate cheese/food made from milk' (NOT milk drinking), plus juice/fish in a couple; elsewhere it mixes formula/animal/combined milk. Do NOT use directly — use CP_fed_milk_yesterday. (P31)",
+    ("final_CH_MICS", "CP_times_infant_formula_yesterday"): "Number of times the child was fed infant formula yesterday (count; 7 = '7 or more' in MICS6, actual counts up to ~22 in MICS4). Rebuilt fresh from raw by label (BD7D1 MICS6; BF5/BD7EN MICS4/5); per-dataset sentinels (DK/missing/NR, >=90) nulled. Non-null only for formula-fed children. 132 datasets. (P54)",
     ("final_CH_MICS", "CP_fed_animal_milk_yesterday"): "Child drank animal / tinned / powdered / fresh milk yesterday (NOT infant formula, NOT breast milk, NOT yogurt): 1=Yes, 0=No, NULL=DK/missing. Rebuilt fresh from raw by label (BD7E MICS6; BD7D/BF6/BF3F/BF3E MICS4/5), excluding formula/breast/yogurt/cheese and diarrhoea-care fluids. 84 datasets. Animal-milk component of CP_fed_milk_yesterday (P31, formula OR animal milk). (P53)",
     ("final_CH_MICS", "CP_fed_milk_yesterday"): "Child drank milk yesterday: 1 = drank infant formula OR animal/other milk, 0 = neither, NULL = missing. Re-derived to fix the mis-aligned raw variable (which conflated cheese/juice/fish); animal-milk BD7E recovered from the SAV for 50 MICS6 datasets. 227 datasets. (P31)",
     ("final_CH_MICS", "CP_still_breastfeeding"): "Is the child still being breastfed: 1=Yes, 0=No, NULL=DK/missing. 241 datasets (240 harmonized + 1 recovered). By definition applies to children ever breastfed. (P30)",
