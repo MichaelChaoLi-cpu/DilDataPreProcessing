@@ -51,6 +51,7 @@ Records post-hoc corrections to canonical variables. Each entry documents what c
 | P53 | 2026-08-17 | CH | `CP_fed_animal_milk_yesterday` — drank animal/tinned/powdered/fresh milk (1/0) from raw by label (BD7E/BD7D/BF6…); 84 datasets | ✅ | ✅ | `MICS-CH/src/patch_fed_animal_milk.py` |
 | P54 | 2026-08-23 | CH | `CP_times_infant_formula_yesterday` — times fed infant formula (count) from raw by label (BD7D1/BF5/BD7EN); 7 → 132 datasets | ✅ | ✅ | `MICS-CH/src/patch_times_infant_formula.py` |
 | P55 | 2026-08-23 | CH | `CP_times_animal_milk_yesterday` — times drank animal milk (count) from raw by label (BD7E1/BF7); new variable, 44 datasets | ✅ | ✅ | `MICS-CH/src/patch_times_animal_milk.py` |
+| P56 | 2026-08-23 | CH | `CP_times_yogurt_yesterday` — times drank/ate yogurt (count) from raw by label (BD8A1/BD8AN/BF14/BD7F1), eaten+drunk summed; 67 → 156 datasets | ✅ | ✅ | `MICS-CH/src/patch_times_yogurt.py` |
 | P46 | 2026-08-14 | CH | `CP_fed_vitamin_a_fruits_yesterday` — ripe mango/papaya/apricot/melon etc. (1/0) from raw BD8G; Pakistan-KP reads BD8F; 65 → 108 datasets | ✅ | ✅ | `MICS-CH/src/patch_fed_vitamin_a_fruit.py` |
 | P45 | 2026-08-14 | CH | `CP_fed_dark_green_leafy_vegetables_yesterday` — spinach/broccoli/kale etc. (1/0) from raw BD8F; multilingual green-leafy recovery; 92 → 107 datasets | ✅ | ✅ | `MICS-CH/src/patch_fed_green_leafy.py` |
 | P44 | 2026-08-14 | CH | `CP_fed_vitamin_a_vegetables_yesterday` — pumpkin/carrots/squash/orange sweet potato (1/0) from raw BD8D; fixes Fiji/Georgia multi-source; 100 → 107 datasets | ✅ | ✅ | `MICS-CH/src/patch_fed_vitamin_a_veg.py` |
@@ -2535,3 +2536,35 @@ Parquet snapshot `ch_merged.parquet.bak_p55`. `final_CH_MICS` rebuilt via `TRUNC
 
 ### Code
 `MICS-CH/src/patch_times_animal_milk.py` — `_select_col()`, `_sentinel_codes()`, `_from_raw()`, `--verify`.
+
+---
+
+## P56 — `CP_times_yogurt_yesterday` (CH)
+
+**Date:** 2026-08-23 · **Module:** CH · **Column:** `CP_times_yogurt_yesterday`
+
+### Problem
+The "times drank or ate yogurt yesterday" COUNT was mapped for only **67 datasets** though
+present in ~166 (raw `BD8A1` MICS6, `BD8AN` MICS5, `BF14` MICS4, `BD7F1` MICS6-2023 yogurt-
+drink). MICS6-2023 surveys split yogurt into eaten (`BD8A1`) + drunk (`BD7F1`), and CAR MICS6
+carries a `BD8DUMMY` check-flag column with a yogurt-times-like label.
+
+### Fix (rebuild fresh from raw, by LABEL; sum eaten+drunk; per-dataset sentinels)
+Select all times + yogurt count columns by label (excluding cheese/formula/breast/water/juice/
+other-liquid, and dummy/instruction-flag columns by name and by "make sure/ensure/s'assurer"
+label). SUM the per-column cleaned counts (eaten + drunk); a code is NULLed if its value label
+says DK/missing/NR/NSP/inconsistent or if code ≥ 90; total capped at 40. Guarded positional
+backfill. Count companion of P38 `CP_fed_yogurt_yesterday`.
+
+### Result
+**156 datasets**, **132,676 rows** (non-null only for children who had yogurt), range 1-22,
+mean 1.6. Consistency: 100% of children with a count also flagged as having had yogurt. (CAR
+MICS6 corrected from 3,478 dummy-flag values to 113 real BD8A1 counts.)
+
+### DB / Parquet: ✅ Done (2026-08-23)
+Parquet snapshot `ch_merged.parquet.bak_p56`. `final_CH_MICS` rebuilt via `TRUNCATE` + grouped
+`COPY` (1,684,203 rows / 251 datasets preserved); `ind_que` mirrored. Column type SMALLINT.
+
+### Code
+`MICS-CH/src/patch_times_yogurt.py` — `_select_cols()` (yogurt-times, excl dummy/flags),
+`_sentinel_codes()`, `_from_raw()` (sum eaten+drunk), `--verify`.
