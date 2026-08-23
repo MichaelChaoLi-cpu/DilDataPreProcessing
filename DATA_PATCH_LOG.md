@@ -50,6 +50,7 @@ Records post-hoc corrections to canonical variables. Each entry documents what c
 | P52 | 2026-08-17 | CH | `CP_mother_native_language`(+`_source`) — child's mother's native language, priority WM→CH→HH; 477,440 children / 67 datasets | ✅ | ✅ | `MICS-CH/src/patch_child_mother_native_language.py` |
 | P53 | 2026-08-17 | CH | `CP_fed_animal_milk_yesterday` — drank animal/tinned/powdered/fresh milk (1/0) from raw by label (BD7E/BD7D/BF6…); 84 datasets | ✅ | ✅ | `MICS-CH/src/patch_fed_animal_milk.py` |
 | P54 | 2026-08-23 | CH | `CP_times_infant_formula_yesterday` — times fed infant formula (count) from raw by label (BD7D1/BF5/BD7EN); 7 → 132 datasets | ✅ | ✅ | `MICS-CH/src/patch_times_infant_formula.py` |
+| P55 | 2026-08-23 | CH | `CP_times_animal_milk_yesterday` — times drank animal milk (count) from raw by label (BD7E1/BF7); new variable, 44 datasets | ✅ | ✅ | `MICS-CH/src/patch_times_animal_milk.py` |
 | P46 | 2026-08-14 | CH | `CP_fed_vitamin_a_fruits_yesterday` — ripe mango/papaya/apricot/melon etc. (1/0) from raw BD8G; Pakistan-KP reads BD8F; 65 → 108 datasets | ✅ | ✅ | `MICS-CH/src/patch_fed_vitamin_a_fruit.py` |
 | P45 | 2026-08-14 | CH | `CP_fed_dark_green_leafy_vegetables_yesterday` — spinach/broccoli/kale etc. (1/0) from raw BD8F; multilingual green-leafy recovery; 92 → 107 datasets | ✅ | ✅ | `MICS-CH/src/patch_fed_green_leafy.py` |
 | P44 | 2026-08-14 | CH | `CP_fed_vitamin_a_vegetables_yesterday` — pumpkin/carrots/squash/orange sweet potato (1/0) from raw BD8D; fixes Fiji/Georgia multi-source; 100 → 107 datasets | ✅ | ✅ | `MICS-CH/src/patch_fed_vitamin_a_veg.py` |
@@ -2507,3 +2508,30 @@ Parquet snapshot `ch_merged.parquet.bak_p54`. `final_CH_MICS` rebuilt via `TRUNC
 ### Code
 `MICS-CH/src/patch_times_infant_formula.py` — `_select_col()` (times+formula label),
 `_sentinel_codes()` (value-label DK/missing), `_from_raw()`, `--verify`.
+
+---
+
+## P55 — `CP_times_animal_milk_yesterday` (CH)
+
+**Date:** 2026-08-23 · **Module:** CH · **Column:** `CP_times_animal_milk_yesterday`
+
+### Problem
+No canonical existed for the number of times a child drank animal / tinned / powdered / fresh
+milk yesterday (raw `BD7E1` MICS6 "Times child drank milk from animals"; `BF7` MICS4/5).
+
+### Fix (build fresh from raw, by LABEL; per-dataset sentinels)
+Select the times + animal-milk column by label (excluding formula/breast/yogurt/water/juice/
+diarrhoea/solid). A code is NULLed if its value label says DK/missing/NR/NSP/inconsistent or if
+code ≥ 90; otherwise the numeric count is kept. Guarded positional backfill. Count companion of
+P53 `CP_fed_animal_milk_yesterday`.
+
+### Result
+**44 datasets**, **24,229 rows** (non-null only for children who drank animal milk), range 1-22,
+mean 2.6. Consistency: 100% of children with a count also flagged as having drunk animal milk.
+
+### DB / Parquet: ✅ Done (2026-08-23)
+Parquet snapshot `ch_merged.parquet.bak_p55`. `final_CH_MICS` rebuilt via `TRUNCATE` + grouped
+`COPY` (1,684,203 rows / 251 datasets preserved); `ind_que` mirrored. Column type SMALLINT.
+
+### Code
+`MICS-CH/src/patch_times_animal_milk.py` — `_select_col()`, `_sentinel_codes()`, `_from_raw()`, `--verify`.
