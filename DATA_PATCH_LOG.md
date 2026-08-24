@@ -55,6 +55,7 @@ Records post-hoc corrections to canonical variables. Each entry documents what c
 | P57 | 2026-08-23 | CH | `CP_times_solid_semisolid_soft_food_yesterday` — times ate solid/semi-solid/soft food (IYCF meal frequency, count) from raw by label (BD9/BF17/BD11/BF5); 40 → 163 datasets | ✅ | ✅ | `MICS-CH/src/patch_times_solid_food.py` |
 | P58 | 2026-08-23 | CH | `CP_fed_plain_water_yesterday` — child drank plain water (1/0) from raw by name-anchored label (BD7A/BF3/BF3B); 194 → 207 datasets | ✅ | ✅ | `MICS-CH/src/patch_fed_plain_water.py` |
 | P59 | 2026-08-24 | CH | `CP_fed_juice_yesterday` — child drank juice/juice drinks (1/0) from raw by name-anchored label (BD7B/BF8/BF3C); 190 → 201 datasets | ✅ | ✅ | `MICS-CH/src/patch_fed_juice.py` |
+| P60 | 2026-08-24 | CH | `CP_fed_ors_yesterday` — child drank ORS (1/0) from raw by name-anchored label (BD5/BF11/BF3D); cleans ~15 diarrhoea-care contaminated datasets, 190 clean | ✅ | ✅ | `MICS-CH/src/patch_fed_ors.py` |
 | P46 | 2026-08-14 | CH | `CP_fed_vitamin_a_fruits_yesterday` — ripe mango/papaya/apricot/melon etc. (1/0) from raw BD8G; Pakistan-KP reads BD8F; 65 → 108 datasets | ✅ | ✅ | `MICS-CH/src/patch_fed_vitamin_a_fruit.py` |
 | P45 | 2026-08-14 | CH | `CP_fed_dark_green_leafy_vegetables_yesterday` — spinach/broccoli/kale etc. (1/0) from raw BD8F; multilingual green-leafy recovery; 92 → 107 datasets | ✅ | ✅ | `MICS-CH/src/patch_fed_green_leafy.py` |
 | P44 | 2026-08-14 | CH | `CP_fed_vitamin_a_vegetables_yesterday` — pumpkin/carrots/squash/orange sweet potato (1/0) from raw BD8D; fixes Fiji/Georgia multi-source; 100 → 107 datasets | ✅ | ✅ | `MICS-CH/src/patch_fed_vitamin_a_veg.py` |
@@ -2667,4 +2668,39 @@ Parquet snapshot `ch_merged.parquet.bak_p59`. `final_CH_MICS` rebuilt via `TRUNC
 
 ### Code
 `MICS-CH/src/patch_fed_juice.py` — `_select_cols()` (name-anchored `{BD7B,BF8,BF3C}` +
+label-verified), `_classify()`, `_from_raw()` (OR across selected cols), `--verify`.
+
+---
+
+## P60 — `CP_fed_ors_yesterday` (CH)
+
+**Date:** 2026-08-24 · **Module:** CH · **Column:** `CP_fed_ors_yesterday`
+
+### Problem
+The "child drank ORS (oral rehydration solution) yesterday" yes/no feeding item lives in raw
+`BD5` (MICS6), `BF11` (MICS4/5), `BF3D` (MICS2/3 "Received: ORS"). ORS *also* appears in the
+diarrhoea-care module (`CA`/`CI` series: "drank fluid from ORS packet / pre-packaged ORS for
+diarrhoea"), a DIFFERENT question. The base `infant_fed_ors_yesterday` (223 datasets) had taken
+its value from those CA columns for ~15 datasets that have only the diarrhoea-ORS question and no
+feeding-ORS item (e.g. Albania 2005, Argentina).
+
+### Fix (rebuild fresh from raw; NAME-anchored + label-verified)
+Select a column whose NAME is in `{BD5, BF11, BF3D}` (the stable ORS feeding positions) AND whose
+label mentions ORS (ORS / SRO / oral rehydration / sels de réhydratation, mojibake-robust fold)
+AND is a yes/no item, EXCLUDING the diarrhoea-care ("for diarrhoea", "pre-packaged") and count
+false friends. Note the ORS definition text ("solution"/"rehydration") is *not* excluded — that
+is the item itself. 1=Yes→1, 2=No→0; sentinels → NULL. Guarded positional backfill.
+
+### Result
+**190 datasets** (clean feeding-ORS only), **897,820 rows**, all 0/1, yes-rate 0.03 (ORS is a
+rare, illness-time liquid); no dataset is all-yes. One legitimate all-no dataset (Mongolia Nalaikh
+MICS5, 218 children all coded "No"). The datasets not sourced were either diarrhoea-only (correctly
+dropped) or failed the row-count / household-id guard; the base column is retained unchanged.
+
+### DB / Parquet: ✅ Done (2026-08-24)
+Parquet snapshot `ch_merged.parquet.bak_p60`. `final_CH_MICS` rebuilt via `TRUNCATE` + grouped
+`COPY` (1,684,203 rows / 251 datasets preserved); `ind_que` mirrored. Column type SMALLINT.
+
+### Code
+`MICS-CH/src/patch_fed_ors.py` — `_select_cols()` (name-anchored `{BD5,BF11,BF3D}` +
 label-verified), `_classify()`, `_from_raw()` (OR across selected cols), `--verify`.
