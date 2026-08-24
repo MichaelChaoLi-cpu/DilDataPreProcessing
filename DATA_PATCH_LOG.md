@@ -57,6 +57,7 @@ Records post-hoc corrections to canonical variables. Each entry documents what c
 | P59 | 2026-08-24 | CH | `CP_fed_juice_yesterday` — child drank juice/juice drinks (1/0) from raw by name-anchored label (BD7B/BF8/BF3C); 190 → 201 datasets | ✅ | ✅ | `MICS-CH/src/patch_fed_juice.py` |
 | P60 | 2026-08-24 | CH | `CP_fed_ors_yesterday` — child drank ORS (1/0) from raw by name-anchored label (BD5/BF11/BF3D); cleans ~15 diarrhoea-care contaminated datasets, 190 clean | ✅ | ✅ | `MICS-CH/src/patch_fed_ors.py` |
 | P61 | 2026-08-24 | CH | `CP_fed_clear_broth_soup_yesterday` — child drank clear broth/soup (1/0) from raw by name-anchored label (BD7C/BF9/BF3G); 120 → 145 datasets | ✅ | ✅ | `MICS-CH/src/patch_fed_soup.py` |
+| P62 | 2026-08-24 | CH | `CP_fed_other_liquids_yesterday` — child drank any other liquid (1/0) from raw by name-anchored label (BD7X/BF12/BD7F/BF3F/BF3G); cleans ~11 diarrhoea/count-contaminated, 204 clean | ✅ | ✅ | `MICS-CH/src/patch_fed_other_liquids.py` |
 | P46 | 2026-08-14 | CH | `CP_fed_vitamin_a_fruits_yesterday` — ripe mango/papaya/apricot/melon etc. (1/0) from raw BD8G; Pakistan-KP reads BD8F; 65 → 108 datasets | ✅ | ✅ | `MICS-CH/src/patch_fed_vitamin_a_fruit.py` |
 | P45 | 2026-08-14 | CH | `CP_fed_dark_green_leafy_vegetables_yesterday` — spinach/broccoli/kale etc. (1/0) from raw BD8F; multilingual green-leafy recovery; 92 → 107 datasets | ✅ | ✅ | `MICS-CH/src/patch_fed_green_leafy.py` |
 | P44 | 2026-08-14 | CH | `CP_fed_vitamin_a_vegetables_yesterday` — pumpkin/carrots/squash/orange sweet potato (1/0) from raw BD8D; fixes Fiji/Georgia multi-source; 100 → 107 datasets | ✅ | ✅ | `MICS-CH/src/patch_fed_vitamin_a_veg.py` |
@@ -2739,3 +2740,40 @@ Parquet snapshot `ch_merged.parquet.bak_p61`. `final_CH_MICS` rebuilt via `TRUNC
 ### Code
 `MICS-CH/src/patch_fed_soup.py` — `_select_cols()` (name-anchored `{BD7C,BF9,BF3G}` +
 label-verified), `_classify()`, `_from_raw()` (OR across selected cols), `--verify`.
+
+---
+
+## P62 — `CP_fed_other_liquids_yesterday` (CH)
+
+**Date:** 2026-08-24 · **Module:** CH · **Column:** `CP_fed_other_liquids_yesterday`
+
+### Problem
+The "child drank any other liquid yesterday" catch-all yes/no item (raw `BD7X` MICS6, `BF12`
+MICS4/5, `BD7F`, `BF3F`/`BF3G` MICS2/3) was mapped for 229 datasets, but ~11 of those took the
+value from a diarrhoea-care column (`CI3H`/`CA` series) or a count/specify variant
+(`BD7X1`/`BF3F1`/`BF3FA`). The column NAME positions are also heavily reused across rounds:
+`BD7F` is the yogurt-drink item (P38/P56) in some questionnaires, `BF3F` is animal milk (P53)
+elsewhere, `BF3G` is broth/soup (P61) elsewhere.
+
+### Fix (rebuild fresh from raw; NAME-anchored + label-verified)
+Select a column whose NAME is in `{BD7X, BF12, BD7F, BF3F, BF3G}` AND whose label mentions
+"other liquid" (any other liquid / autre liquide / otro líquido, mojibake-robust fold) AND is a
+yes/no item, EXCLUDING diarrhoea-care and count/"type of"/"specify" false friends. Because each
+column carries exactly one label per dataset, the label-verify cleanly assigns each reused name
+to whichever patch its label matches — never to two. 1=Yes→1, 2=No→0; sentinels → NULL. Guarded
+positional backfill.
+
+### Result
+**204 datasets**, **966,371 rows**, all 0/1, yes-rate 0.29; no dataset is all-yes or all-no
+(mojibake-bug check clean). The datasets not sourced were either wrongly-mapped in the base
+(diarrhoea/count columns, correctly dropped) or failed the row-count / household-id guard; the
+base column is retained unchanged.
+
+### DB / Parquet: ✅ Done (2026-08-24)
+Parquet snapshot `ch_merged.parquet.bak_p62`. `final_CH_MICS` rebuilt via `TRUNCATE` + grouped
+`COPY` (1,684,203 rows / 251 datasets preserved); `ind_que` mirrored. Column type SMALLINT.
+
+### Code
+`MICS-CH/src/patch_fed_other_liquids.py` — `_select_cols()` (name-anchored
+`{BD7X,BF12,BD7F,BF3F,BF3G}` + label-verified), `_classify()`, `_from_raw()` (OR across selected
+cols), `--verify`.
