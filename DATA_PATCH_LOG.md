@@ -56,6 +56,7 @@ Records post-hoc corrections to canonical variables. Each entry documents what c
 | P58 | 2026-08-23 | CH | `CP_fed_plain_water_yesterday` — child drank plain water (1/0) from raw by name-anchored label (BD7A/BF3/BF3B); 194 → 207 datasets | ✅ | ✅ | `MICS-CH/src/patch_fed_plain_water.py` |
 | P59 | 2026-08-24 | CH | `CP_fed_juice_yesterday` — child drank juice/juice drinks (1/0) from raw by name-anchored label (BD7B/BF8/BF3C); 190 → 201 datasets | ✅ | ✅ | `MICS-CH/src/patch_fed_juice.py` |
 | P60 | 2026-08-24 | CH | `CP_fed_ors_yesterday` — child drank ORS (1/0) from raw by name-anchored label (BD5/BF11/BF3D); cleans ~15 diarrhoea-care contaminated datasets, 190 clean | ✅ | ✅ | `MICS-CH/src/patch_fed_ors.py` |
+| P61 | 2026-08-24 | CH | `CP_fed_clear_broth_soup_yesterday` — child drank clear broth/soup (1/0) from raw by name-anchored label (BD7C/BF9/BF3G); 120 → 145 datasets | ✅ | ✅ | `MICS-CH/src/patch_fed_soup.py` |
 | P46 | 2026-08-14 | CH | `CP_fed_vitamin_a_fruits_yesterday` — ripe mango/papaya/apricot/melon etc. (1/0) from raw BD8G; Pakistan-KP reads BD8F; 65 → 108 datasets | ✅ | ✅ | `MICS-CH/src/patch_fed_vitamin_a_fruit.py` |
 | P45 | 2026-08-14 | CH | `CP_fed_dark_green_leafy_vegetables_yesterday` — spinach/broccoli/kale etc. (1/0) from raw BD8F; multilingual green-leafy recovery; 92 → 107 datasets | ✅ | ✅ | `MICS-CH/src/patch_fed_green_leafy.py` |
 | P44 | 2026-08-14 | CH | `CP_fed_vitamin_a_vegetables_yesterday` — pumpkin/carrots/squash/orange sweet potato (1/0) from raw BD8D; fixes Fiji/Georgia multi-source; 100 → 107 datasets | ✅ | ✅ | `MICS-CH/src/patch_fed_vitamin_a_veg.py` |
@@ -2703,4 +2704,38 @@ Parquet snapshot `ch_merged.parquet.bak_p60`. `final_CH_MICS` rebuilt via `TRUNC
 
 ### Code
 `MICS-CH/src/patch_fed_ors.py` — `_select_cols()` (name-anchored `{BD5,BF11,BF3D}` +
+label-verified), `_classify()`, `_from_raw()` (OR across selected cols), `--verify`.
+
+---
+
+## P61 — `CP_fed_clear_broth_soup_yesterday` (CH)
+
+**Date:** 2026-08-24 · **Module:** CH · **Column:** `CP_fed_clear_broth_soup_yesterday`
+
+### Problem
+The "child drank clear broth / clear soup yesterday" yes/no feeding item was mapped for **120
+datasets** though present in ~155 (raw `BD7C` MICS6 "clear broth/clear soup", `BF9` MICS4/5
+"soup/broth", `BF3G` MICS2/3). Two hazards: the `BD7C` liquid position is reused for other
+liquids ("aniseed tea, gripe water" in Guyana), and the word "soup" also appears on the
+solid-food example list (`BF16` "solid or semi-solid such as ... soup") and on a soup-type
+follow-up (`BF9A` "what type of soup").
+
+### Fix (rebuild fresh from raw; NAME-anchored + label-verified)
+Select a column whose NAME is in `{BD7C, BF9, BF3G}` (the stable broth/soup feeding positions)
+AND whose label mentions broth/soup (broth / soup / caldo / sopa / canja / bouillon / soupe /
+potage, mojibake-robust fold) AND is a yes/no item, EXCLUDING diarrhoea-care, tea, solid-food
+("solid or semi"), and "type of / tipo de" follow-up false friends. 1=Yes→1, 2=No→0; sentinels
+→ NULL. Guarded positional backfill.
+
+### Result
+**145 datasets**, **682,681 rows**, all 0/1, yes-rate 0.30; no dataset is all-yes or all-no
+(mojibake-bug check clean). The ~10 label-matched datasets not sourced failed the row-count /
+household-id guard (their base column is retained unchanged).
+
+### DB / Parquet: ✅ Done (2026-08-24)
+Parquet snapshot `ch_merged.parquet.bak_p61`. `final_CH_MICS` rebuilt via `TRUNCATE` + grouped
+`COPY` (1,684,203 rows / 251 datasets preserved); `ind_que` mirrored. Column type SMALLINT.
+
+### Code
+`MICS-CH/src/patch_fed_soup.py` — `_select_cols()` (name-anchored `{BD7C,BF9,BF3G}` +
 label-verified), `_classify()`, `_from_raw()` (OR across selected cols), `--verify`.
